@@ -1,23 +1,15 @@
+// อิมพอร์ต mongoose มาใช้งาน
 import mongoose from "mongoose"
-
+// กำหนดฟังก์ชันในแบบ async สำหรับใช้เชื่อมต่อไปยังฐานข้อมูล
 export default async function mongodbConnect() {
     try {
-        // Check if we already have a connection
-        if (mongoose.connections[0].readyState) {
-            return;
-        }
-
         mongoose.set("strictQuery", false);
-        await mongoose.connect(process.env.MONGODB_URI, {
-            maxPoolSize: 10,
-            serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
-        })
+        // เรียกเมธอด connect() เพื่อเชื่อมต่อฐานข้อมูล
+        await mongoose.connect(process.env.MONGODB_URI)
+        // กำหนด index ป้องกันไม่ให้ใส่ข้อมูลที่ซ้ำกันลงในฟิลด์ที่กำหนด
         await mongoose.connection.syncIndexes()
         console.log('Database Connected!')
     } catch (error) {
-        console.error('MongoDB connection error:', error.message)
-        // Throw the error to be handled by the calling function
-        throw new Error('Failed to connect to MongoDB')
+        console.error(error.message)
     }
 }
