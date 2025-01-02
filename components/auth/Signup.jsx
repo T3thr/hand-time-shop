@@ -35,20 +35,17 @@ const Signup = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-var-background transition-all duration-500 ease-in-out">
-      <div
-        style={{ maxWidth: "480px" }}
-        className="mt-10 mb-20 p-4 md:p-7 bg-white dark:bg-gray-600 rounded-lg shadow-lg dark:shadow-light"
-      >
+    <div className="flex items-center justify-center min-h-screen bg-background text-foreground transition-all duration-500 ease-in-out">
+      <div className="max-w-lg mx-auto mt-10 mb-20 p-4 md:p-7 bg-surface-card rounded-lg shadow-md border border-border-primary">
         <form onSubmit={submitHandler}>
-          <h2 className="mb-5 text-2xl font-semibold text-center text-var-foreground">
+          <h2 className="mb-5 text-2xl font-semibold text-center text-foreground">
             Create Account
           </h2>
 
           <div className="mb-4">
-            <label className="block mb-1 text-var-muted">Name</label>
+            <label className="block mb-1 text-text-secondary">Name</label>
             <input
-              className="appearance-none border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-gray-400 w-full text-var-foreground dark:text-var-foreground"
+              className="appearance-none border border-border-primary bg-container rounded-md py-2 px-3 hover:border-border-secondary focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
               type="text"
               placeholder="Type your name"
               value={name}
@@ -58,9 +55,9 @@ const Signup = () => {
           </div>
 
           <div className="mb-4">
-            <label className="block mb-1 text-var-muted">Username</label>
+            <label className="block mb-1 text-text-secondary">Username</label>
             <input
-              className="appearance-none border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-gray-400 w-full text-var-foreground dark:text-var-foreground"
+              className="appearance-none border border-border-primary bg-container rounded-md py-2 px-3 hover:border-border-secondary focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
               type="text"
               placeholder="Type your username"
               value={username}
@@ -70,9 +67,9 @@ const Signup = () => {
           </div>
 
           <div className="mb-4">
-            <label className="block mb-1 text-var-muted">Email</label>
+            <label className="block mb-1 text-text-secondary">Email</label>
             <input
-              className="appearance-none border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-gray-400 w-full text-var-foreground dark:text-var-foreground"
+              className="appearance-none border border-border-primary bg-container rounded-md py-2 px-3 hover:border-border-secondary focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
               type="email"
               placeholder="Type your email"
               value={email}
@@ -82,9 +79,9 @@ const Signup = () => {
           </div>
 
           <div className="mb-4">
-            <label className="block mb-1 text-var-muted">Password</label>
+            <label className="block mb-1 text-text-secondary">Password</label>
             <input
-              className="appearance-none border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 rounded-md py-2 px-3 hover:border-gray-400 focus:outline-none focus:border-gray-400 w-full text-var-foreground dark:text-var-foreground"
+              className="appearance-none border border-border-primary bg-container rounded-md py-2 px-3 hover:border-border-secondary focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
               type="password"
               placeholder="Type your password"
               minLength={6}
@@ -96,16 +93,16 @@ const Signup = () => {
 
           <button
             type="submit"
-            className="my-2 px-4 py-2 text-center w-full inline-block text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 transition duration-200"
+            className="my-2 px-4 py-2 text-center w-full inline-block text-text-inverted bg-primary border border-transparent rounded-md hover:bg-primary-dark transition duration-200"
           >
             Sign up
           </button>
 
-          <hr className="mt-4" />
+          <hr className="mt-4 border-border-primary" />
 
-          <p className="text-center mt-5 text-var-muted">
+          <p className="text-center mt-5 text-text-secondary">
             Already have an account?{" "}
-            <Link href="/signin" className="text-blue-500 hover:underline">
+            <Link href="/signin" className="text-primary hover:text-primary-dark hover:underline">
               Sign in
             </Link>
           </p>

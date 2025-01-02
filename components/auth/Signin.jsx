@@ -61,19 +61,27 @@ const Signin = () => {
   }, [session, callBackUrl, router]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-var-background transition-all duration-500 ease-in-out">
-      <div className="bg-white dark:bg-gray-600 shadow-lg rounded-lg p-8 max-w-md w-full">
-        <h2 className="mb-5 text-3xl font-bold text-center text-var-foreground">Welcome Back</h2>
+    <div className="flex items-center justify-center min-h-screen bg-background text-foreground transition-all duration-500 ease-in-out">
+      <div className="bg-surface-card shadow-md rounded-lg p-8 max-w-md w-full border border-border-primary">
+        <h2 className="mb-5 text-3xl font-bold text-center text-foreground">Welcome Back</h2>
 
         <div className="flex justify-center mb-4">
           <button
-            className={`py-2 px-4 rounded-l-lg ${isUsernameSignIn ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"}`}
+            className={`py-2 px-4 rounded-l-lg transition-colors duration-200 ${
+              isUsernameSignIn
+                ? "bg-primary text-text-inverted"
+                : "bg-background-secondary text-text-secondary"
+            }`}
             onClick={() => setIsUsernameSignIn(true)}
           >
             Username Sign In
           </button>
           <button
-            className={`py-2 px-4 rounded-r-lg ${!isUsernameSignIn ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"}`}
+            className={`py-2 px-4 rounded-r-lg transition-colors duration-200 ${
+              !isUsernameSignIn
+                ? "bg-primary text-text-inverted"
+                : "bg-background-secondary text-text-secondary"
+            }`}
             onClick={() => setIsUsernameSignIn(false)}
           >
             Email Sign In
@@ -83,9 +91,9 @@ const Signin = () => {
         <form onSubmit={submitHandler}>
           {isUsernameSignIn ? (
             <div className="mb-4">
-              <label className="block mb-1 font-medium text-var-foreground">Username</label>
+              <label className="block mb-1 font-medium text-text-secondary">Username</label>
               <input
-                className="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                className="border border-border-primary bg-container rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
                 type="text"
                 placeholder="Enter your username"
                 value={username}
@@ -95,9 +103,9 @@ const Signin = () => {
             </div>
           ) : (
             <div className="mb-4">
-              <label className="block mb-1 font-medium text-var-foreground">Email</label>
+              <label className="block mb-1 font-medium text-text-secondary">Email</label>
               <input
-                className="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                className="border border-border-primary bg-container rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
                 type="email"
                 placeholder="Enter your email"
                 value={email}
@@ -107,9 +115,9 @@ const Signin = () => {
             </div>
           )}
           <div className="mb-4">
-            <label className="block mb-1 font-medium text-var-foreground">Password</label>
+            <label className="block mb-1 font-medium text-text-secondary">Password</label>
             <input
-              className="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              className="border border-border-primary bg-container rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
               type="password"
               placeholder="Enter your password"
               value={password}
@@ -118,7 +126,7 @@ const Signin = () => {
             />
           </div>
           <button
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-800 transition duration-200 mb-4"
+            className="w-full bg-primary text-text-inverted py-2 rounded-md hover:bg-primary-dark transition duration-200 mb-4"
             type="submit"
           >
             Sign In
@@ -126,20 +134,21 @@ const Signin = () => {
         </form>
 
         <button
-          className="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600 transition duration-200 mb-4"
+          className="w-full bg-error text-text-inverted py-2 rounded-md hover:bg-error/90 transition duration-200 mb-4"
           onClick={handleGoogleSignIn}
         >
           Sign in with Google
         </button>
 
         <div className="text-center">
-          <Link href="/signup" className="text-blue-500 hover:underline">
-            Don’t have an account? Sign up
+          <Link href="/signup" className="text-primary hover:text-primary-dark hover:underline">
+            Don't have an account? Sign up
           </Link>
         </div>
       </div>
     </div>
   );
 };
+
 
 export default Signin;
