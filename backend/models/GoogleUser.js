@@ -16,4 +16,4 @@ const googleUserSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
 });
 
-export default mongoose.models.GoogleUser || mongoose.model('GoogleUser', googleUserSchema);
+export default mongoose.models?.GoogleUser || mongoose.model('GoogleUser', googleUserSchema);
