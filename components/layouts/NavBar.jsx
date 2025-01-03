@@ -104,19 +104,24 @@ export default function NavBar() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden">
+        <div className="md:hidden bg-white dark:bg-gray-900 shadow-lg">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <Link href="/categories" className="nav-link block px-3 py-2">
+            <Link href="/categories" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
               Categories
             </Link>
-            <Link href="/deals" className="nav-link block px-3 py-2">
+            <Link href="/deals" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
               Deals
             </Link>
-            <Link href="/new-arrivals" className="nav-link block px-3 py-2">
+            <Link href="/new-arrivals" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
               New Arrivals
             </Link>
+            {session && (
+              <Link href="/account" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
+                Account
+              </Link>
+            )}
             {!session && (
-              <Link href="/signin" className="nav-link block px-3 py-2">
+              <Link href="/signin" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
                 Sign In
               </Link>
             )}
