@@ -12,7 +12,7 @@ export default function ChangeTheme() {
             {/* Fixed Up/Down Toggle Button */}
             <button
                 onClick={() => setIsVisible((prev) => !prev)}
-                className={`z-50 w-20 h-6 flex items-center justify-center rounded-tl-lg rounded-tr-lg bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg hover:bg-gray-900 duration-300 fixed bottom-0 right-4 transition-all`}
+                className={`z-[100] w-20 h-6 flex items-center justify-center rounded-tl-lg rounded-tr-lg bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg hover:bg-gray-900 duration-300 fixed bottom-0 right-4 transition-all`}
             >
                 {/* The Text Icon that will Rotate */}
                 <span
