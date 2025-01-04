@@ -1,76 +1,137 @@
 // context/CartContext.js
+'use client'
 import { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { useSession } from 'next-auth/react';
 
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { data: session } = useSession();
 
-  // Load cart from localStorage on initial render
+  // Enhanced cart initialization
   useEffect(() => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      try {
-        setCartItems(JSON.parse(savedCart));
-      } catch (error) {
-        console.error('Error loading cart:', error);
+    const initializeCart = () => {
+      if (session?.user?.email) {
+        try {
+          const savedCart = localStorage.getItem(`cart_${session.user.email}`);
+          const parsedCart = savedCart ? JSON.parse(savedCart) : [];
+          
+          // Validate cart data structure
+          if (Array.isArray(parsedCart) && parsedCart.every(item => 
+            item.id && 
+            typeof item.quantity === 'number' && 
+            item.price && 
+            item.name
+          )) {
+            setCartItems(parsedCart);
+          } else {
+            console.warn('Invalid cart data structure, resetting cart');
+            setCartItems([]);
+          }
+        } catch (error) {
+          console.error('Error loading cart:', error);
+          toast.error('Error loading your cart');
+          setCartItems([]);
+        }
+      } else {
+        setCartItems([]);
       }
-    }
-  }, []);
+    };
 
-  // Save cart to localStorage whenever it changes
+    initializeCart();
+  }, [session]);
+
+  // Optimized cart persistence
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cartItems));
-  }, [cartItems]);
+    const persistCart = () => {
+      if (session?.user?.email && cartItems.length >= 0) {
+        try {
+          localStorage.setItem(`cart_${session.user.email}`, JSON.stringify(cartItems));
+        } catch (error) {
+          console.error('Error saving cart:', error);
+          toast.error('Error saving your cart');
+        }
+      }
+    };
+
+    persistCart();
+  }, [cartItems, session]);
 
   const addToCart = async (product, quantity = 1) => {
+    if (!session?.user?.email) {
+      toast.error('Please sign in to add items to cart');
+      return false;
+    }
+
+    if (!product?.id || !product?.price || !product?.name) {
+      toast.error('Invalid product data');
+      return false;
+    }
+
     setLoading(true);
+    
     try {
-      const existingItem = cartItems.find(item => item.id === product.id);
+      const existingItemIndex = cartItems.findIndex(item => item.id === product.id);
       
-      if (existingItem) {
-        // Update quantity if item exists
-        setCartItems(cartItems.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        ));
+      if (existingItemIndex !== -1) {
+        const updatedItems = [...cartItems];
+        const newQuantity = updatedItems[existingItemIndex].quantity + quantity;
+        
+        // Optional: Add stock validation here
+        // if (newQuantity > product.stockLimit) {
+        //   toast.warning(`Only ${product.stockLimit} items available`);
+        //   setLoading(false);
+        //   return false;
+        // }
+        
+        updatedItems[existingItemIndex] = {
+          ...updatedItems[existingItemIndex],
+          quantity: newQuantity,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        setCartItems(updatedItems);
       } else {
-        // Add new item
-        setCartItems([...cartItems, { ...product, quantity }]);
+        const newItem = {
+          ...product,
+          quantity,
+          addedAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+          userId: session.user.email
+        };
+        
+        setCartItems(prev => [...prev, newItem]);
       }
       
-      setLoading(false);
       return true;
     } catch (error) {
       console.error('Error adding to cart:', error);
+      toast.error('Failed to add item to cart');
+      return false;
+    } finally {
       setLoading(false);
-      throw new Error('Failed to add item to cart');
     }
   };
 
-  const removeFromCart = (productId) => {
-    try {
-      setCartItems(cartItems.filter(item => item.id !== productId));
-      toast.success('Item removed from cart');
-    } catch (error) {
-      console.error('Error removing from cart:', error);
-      toast.error('Failed to remove item');
-    }
-  };
+  const updateQuantity = async (productId, newQuantity) => {
+    if (!session?.user?.email || !productId) return;
 
-  const updateQuantity = (productId, newQuantity) => {
     try {
       if (newQuantity < 1) {
-        removeFromCart(productId);
+        await removeFromCart(productId);
         return;
       }
 
-      setCartItems(cartItems.map(item =>
+      setCartItems(prev => prev.map(item =>
         item.id === productId
-          ? { ...item, quantity: newQuantity }
+          ? {
+              ...item,
+              quantity: newQuantity,
+              lastUpdated: new Date().toISOString()
+            }
           : item
       ));
     } catch (error) {
@@ -79,39 +140,74 @@ export function CartProvider({ children }) {
     }
   };
 
-  const clearCart = () => {
-    setCartItems([]);
-    localStorage.removeItem('cart');
-    toast.success('Cart cleared');
+  const removeFromCart = async (productId) => {
+    if (!session?.user?.email || !productId) return;
+    
+    try {
+      setCartItems(prev => prev.filter(item => item.id !== productId));
+      toast.success('Item removed from cart');
+    } catch (error) {
+      console.error('Error removing from cart:', error);
+      toast.error('Failed to remove item');
+    }
   };
 
-  // Calculate total price
-  const total = cartItems.reduce(
-    (sum, item) => sum + (item.price * item.quantity),
-    0
-  );
+  // Enhanced cart calculations
+  const getCartSummary = () => {
+    try {
+      const summary = {
+        totalItems: cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0),
+        subtotal: cartItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0),
+        itemCount: cartItems.length,
+        lastUpdated: null
+      };
 
-  // Calculate total items
-  const itemCount = cartItems.reduce(
-    (sum, item) => sum + item.quantity,
-    0
-  );
+      if (cartItems.length > 0) {
+        summary.lastUpdated = new Date(
+          Math.max(...cartItems.map(item => 
+            new Date(item.lastUpdated || item.addedAt).getTime()
+          ))
+        );
+      }
+
+      return summary;
+    } catch (error) {
+      console.error('Error calculating cart summary:', error);
+      return {
+        totalItems: 0,
+        subtotal: 0,
+        itemCount: 0,
+        lastUpdated: null
+      };
+    }
+  };
+
+  const value = {
+    cartItems,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    clearCart: () => {
+      setCartItems([]);
+      if (session?.user?.email) {
+        localStorage.removeItem(`cart_${session.user.email}`);
+      }
+    },
+    loading,
+    getCartSummary
+  };
 
   return (
-    <CartContext.Provider value={{
-      cartItems,
-      addToCart,
-      removeFromCart,
-      updateQuantity,
-      clearCart,
-      total,
-      itemCount,
-      loading
-    }}>
+    <CartContext.Provider value={value}>
       {children}
     </CartContext.Provider>
   );
 }
 
-export const useCart = () => useContext(CartContext);
-
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error('useCart must be used within a CartProvider');
+  }
+  return context;
+};
