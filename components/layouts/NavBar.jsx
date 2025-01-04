@@ -5,7 +5,6 @@ import { useSession, signOut } from "next-auth/react";
 import { useCart } from "@/context/CartContext";
 import { 
   Menu, 
-  Search, 
   ShoppingCart, 
   User, 
   X, 
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import Cart from './Cart';
 import { motion, AnimatePresence } from "framer-motion";
+import Search from './Search';
 
 export default function NavBar() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -26,6 +26,7 @@ export default function NavBar() {
   const { cartItems } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -33,6 +34,13 @@ export default function NavBar() {
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Initialize featured products on client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setFeaturedProducts(window.FEATURED_PRODUCTS || []);
+    }
   }, []);
 
   const sidebarLinks = [
@@ -47,38 +55,42 @@ export default function NavBar() {
       <nav className={`fixed w-full z-40 transition-all duration-300 ${
         isScrolled ? "bg-white/95 dark:bg-gray-900/95 shadow-md backdrop-blur-sm" : "bg-transparent"
       }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Left Section */}
-            <div className="flex items-center space-x-4">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-16">
+            {/* Left Section - Always stays leftmost */}
+            <div className="flex items-center">
               <button
                 onClick={() => setIsSidebarOpen(true)}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
                 <Menu className="h-6 w-6" />
               </button>
+            </div>
+
+            {/* Logo - Stays near left but with some spacing */}
+            <div className="ml-4">
               <Link href="/" className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-primary">Hand Time</h1>
+                <h1 className="text-xl lg:text-3xl font-bold text-primary">Hand Time Shop</h1>
               </Link>
             </div>
 
-            {/* Center Section - Search (Desktop) */}
-            <div className="hidden md:flex flex-1 justify-center px-8">
-              <div className="relative w-full max-w-md">
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  className="w-full pl-10 pr-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary border-none"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-              </div>
+            {/* Center Section - Search - Takes remaining space */}
+            <div className="flex-1 flex justify-center px-4 sm:px-8">
+              <Search 
+                products={featuredProducts}
+                onSearch={(results) => {
+                  if (results) {
+                    setFilters?.(prev => ({
+                      ...prev,
+                      searchQuery: results.length ? results[0].name : ""
+                    }));
+                  }
+                }} 
+              />
             </div>
 
-            {/* Right Section */}
-            <div className="flex items-center space-x-4">
-              {/* Cart Button */}
+            {/* Right Section - Always stays rightmost */}
+            <div className="ml-auto">
               <button 
                 onClick={() => setIsCartOpen(true)}
                 className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"

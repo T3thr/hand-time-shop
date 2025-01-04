@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react';
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import useCart from "@/hooks/useCart"; // Create this custom hook
+import useCart from "@/hooks/useCart";
 import ImageSlider from "@/components/contents/ImageSlider";
 
 const CATEGORIES = [
@@ -32,7 +32,8 @@ const FEATURED_PRODUCTS = [
     price: 70,
     description: 'ผ้าซิ่นสุดเท่จากยาย',
     image: '/products/1.jpg',
-    alt: 'White sneakers on white background'
+    alt: 'White sneakers on white background',
+    category: 'ผ้าซิ่น'
   },
   {
     id: 2, 
@@ -40,7 +41,8 @@ const FEATURED_PRODUCTS = [
     price: 149.99,
     description: 'แมวหูตุบ',
     image: '/products/2.jpg',
-    alt: 'Brown leather backpack'
+    alt: 'Brown leather backpack',
+    category: 'อื่นๆ'
   },
   {
     id: 3,
@@ -48,7 +50,8 @@ const FEATURED_PRODUCTS = [
     price: 199.99,
     description: '-',
     image: '/products/3.jpg',
-    alt: '...'
+    alt: '...',
+    category: 'เครื่องเงิน'
   },
   {
     id: 4,
@@ -56,34 +59,47 @@ const FEATURED_PRODUCTS = [
     price: 299.99,
     description: '-',
     image: '/products/4.jpg',
-    alt: '...'
+    alt: '...',
+    category: 'ผ้าซิ่น'
   }
 ];
 
 export default function Product() {
-  const [products, setProducts] = useState(FEATURED_PRODUCTS);
+  const [displayedProducts, setDisplayedProducts] = useState(FEATURED_PRODUCTS);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     category: "",
     priceRange: "",
     sortBy: "",
+    searchQuery: ""
   });
   const { data: session } = useSession();
   const { addToCart } = useCart();
 
-  // Product filtering and sorting function
+  // Product filtering and sorting function with search
   const getFilteredProducts = () => {
-    let filtered = [...products];
+    let filtered = [...FEATURED_PRODUCTS];
     
+    // Apply search filter
+    if (filters.searchQuery) {
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+        product.description.toLowerCase().includes(filters.searchQuery.toLowerCase())
+      );
+    }
+    
+    // Apply category filter
     if (filters.category) {
       filtered = filtered.filter(p => p.category === filters.category);
     }
     
+    // Apply price range filter
     if (filters.priceRange) {
       const [min, max] = filters.priceRange.split("-");
       filtered = filtered.filter(p => p.price >= min && p.price <= max);
     }
     
+    // Apply sorting
     if (filters.sortBy) {
       filtered.sort((a, b) => {
         if (filters.sortBy === "price-asc") return a.price - b.price;
@@ -93,6 +109,21 @@ export default function Product() {
     }
     
     return filtered;
+  };
+
+  // Update products when filters change
+  useEffect(() => {
+    setDisplayedProducts(getFilteredProducts());
+  }, [filters]);
+
+  // Handle search results from the Search component
+  const handleSearch = (searchResults) => {
+    if (searchResults) {
+      setFilters(prev => ({
+        ...prev,
+        searchQuery: searchResults.length ? searchResults[0].name : "" // Set search query based on results
+      }));
+    }
   };
 
   const handleAddToCart = async (product) => {
@@ -121,10 +152,38 @@ export default function Product() {
     // Implement quick view modal logic
   };
 
+  // Render no results message if needed
+  const renderNoResults = () => {
+    if (filters.searchQuery && displayedProducts.length === 0) {
+      return (
+        <div className="col-span-full py-12 text-center">
+          <h3 className="text-xl font-medium text-gray-600 dark:text-gray-400">
+            No products found for "{filters.searchQuery}"
+          </h3>
+          <p className="mt-2 text-gray-500">
+            Try adjusting your search or filters to find what you're looking for
+          </p>
+          <button
+            onClick={() => setFilters(prev => ({ ...prev, searchQuery: "", category: "" }))}
+            className="mt-4 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+          >
+            Clear Search
+          </button>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Make FEATURED_PRODUCTS available globally for the search component
+  if (typeof window !== 'undefined') {
+    window.FEATURED_PRODUCTS = FEATURED_PRODUCTS;
+  }
+
   return (
     <div className="min-h-screen">
       {/* Hero Section - Improved responsiveness and visual hierarchy */}
-      <section className="relative h-[80vh] lg:h-[80vh] bg-gradient-to-r from-cyan-800 to-blue-600">
+      <section className="relative h-[80vh] lg:h-[80vh] bg-gradient-to-r from-cyan-800 to-blue-600 dark:from-cyan-950 dark:to-blue-800">
         <div className="container-custom h-full flex items-center px-4 lg:px-8">
           <div className="max-w-2xl text-white space-y-6">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
@@ -187,19 +246,27 @@ export default function Product() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-12">
             <div className="space-y-2">
               <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent">
-                Featured Products
+                {filters.searchQuery ? 'Search Results' : 'Featured Products'}
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Discover our handpicked selection</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                {filters.searchQuery 
+                  ? `Showing results for "${filters.searchQuery}"`
+                  : 'Discover our handpicked selection'}
+              </p>
             </div>
-            <button className="btn-secondary whitespace-nowrap hover:scale-105 transition-transform duration-300 flex items-center gap-2">
-              View All
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+            {filters.searchQuery && (
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, searchQuery: "" }))}
+                className="text-sm text-gray-500 hover:text-primary transition-colors"
+              >
+                Clear Search
+              </button>
+            )}
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-            {getFilteredProducts().map((product) => (
+            {renderNoResults()}
+            {displayedProducts.map((product) => (
               <div key={product.id} 
                 className="group bg-white dark:bg-gray-900 rounded-2xl shadow-md hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col"
               >
@@ -212,7 +279,7 @@ export default function Product() {
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="absolute top-3 right-0 flex flex-col gap-2 transform translate-x-10 group-hover:-translate-x-2 transition-transform duration-300">
+                  <div className="absolute top-3 -right-1 flex flex-col gap-2 transform translate-x-10 group-hover:-translate-x-2 transition-transform duration-300">
                     <button 
                       onClick={() => handleWishlist(product.id)}
                       className="p-2.5 bg-white/95 dark:bg-gray-900/95 rounded-full shadow-lg hover:bg-white dark:hover:bg-gray-900 backdrop-blur-sm"
@@ -272,28 +339,6 @@ export default function Product() {
         </div>
       </section>
 
-      {/* Newsletter Section - Enhanced form design */}
-      <section className="py-12 md:py-20">
-        <div className="container-custom px-4 lg:px-8">
-          <div className="max-w-2xl mx-auto text-center space-y-6">
-            <h2 className="text-2xl md:text-3xl font-bold">Join Our Newsletter</h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Subscribe to get special offers, free giveaways, and once-in-a-lifetime deals.
-            </p>
-            <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white dark:bg-gray-900 transition-all duration-200"
-              />
-              <button type="submit" 
-                className="btn-primary whitespace-nowrap hover:shadow-lg transform transition-all duration-200 active:scale-95">
-                Subscribe
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

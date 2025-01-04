@@ -35,8 +35,8 @@ const Signup = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background text-foreground transition-all duration-500 ease-in-out">
-      <div className="max-w-lg mx-auto mt-10 mb-20 p-4 md:p-7 bg-surface-card rounded-lg shadow-md border border-border-primary">
+    <div className="pt-4 flex items-center justify-center min-h-screen bg-background text-foreground transition-all duration-500 ease-in-out">
+      <div className="bg-surface-card shadow-md rounded-lg p-8 max-w-md w-full border border-border-primary">
         <form onSubmit={submitHandler}>
           <h2 className="mb-5 text-2xl font-semibold text-center text-foreground">
             Create Account
