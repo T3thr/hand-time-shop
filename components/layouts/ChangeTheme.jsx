@@ -8,7 +8,7 @@ export default function ChangeTheme() {
     const [isVisible, setIsVisible] = useState(true); // State for showing/hiding toggle button
 
     return (
-        <div className="fixed bottom-0 right-4 ">
+        <div className="z-50 fixed bottom-0 right-4 ">
             {/* Fixed Up/Down Toggle Button */}
             <button
                 onClick={() => setIsVisible((prev) => !prev)}
@@ -26,7 +26,7 @@ export default function ChangeTheme() {
 
             {/* Animated Theme Toggle Button */}
             <div
-                className={`transform transition-all duration-500 ease-out absolute bottom-10 right-1 ${
+                className={`z-50 transform transition-all duration-500 ease-out absolute bottom-10 right-1 ${
                     isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
                 }`}
             >
