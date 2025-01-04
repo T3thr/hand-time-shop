@@ -3,11 +3,24 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useCart } from "@/context/CartContext";
-import { Menu, Search, ShoppingCart, User, X } from "lucide-react";
+import { 
+  Menu, 
+  Search, 
+  ShoppingCart, 
+  User, 
+  X, 
+  Home,
+  Tag,
+  Sparkles,
+  LogOut,
+  ChevronRight,
+  Settings
+} from "lucide-react";
 import Cart from './Cart';
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function NavBar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { data: session } = useSession();
   const { cartItems } = useCart();
@@ -22,117 +35,166 @@ export default function NavBar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  return (
-    <nav className={`fixed w-full z-50 transition-all duration-300 ${
-      isScrolled ? "bg-white/95 dark:bg-gray-900/95 shadow-md backdrop-blur-sm" : "bg-transparent"
-    }`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex-shrink-0">
-            <h1 className="text-2xl font-bold text-primary">Hand Time</h1>
-          </Link>
+  const sidebarLinks = [
+    { href: "/", icon: Home, label: "Home" },
+    { href: "/categories", icon: Tag, label: "Categories" },
+    { href: "/new-arrivals", icon: Sparkles, label: "New Arrivals" },
+    { href: "/account", icon: Settings, label: "Account Settings" },
+  ];
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link href="/categories" className="nav-link">Categories</Link>
-            <Link href="/deals" className="nav-link">Deals</Link>
-            <Link href="/new-arrivals" className="nav-link">New Arrivals</Link>
-            
-            {/* Search Bar */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="pl-10 pr-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+  return (
+    <>
+      <nav className={`fixed w-full z-40 transition-all duration-300 ${
+        isScrolled ? "bg-white/95 dark:bg-gray-900/95 shadow-md backdrop-blur-sm" : "bg-transparent"
+      }`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Left Section */}
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <Menu className="h-6 w-6" />
+              </button>
+              <Link href="/" className="flex-shrink-0">
+                <h1 className="text-2xl font-bold text-primary">Hand Time</h1>
+              </Link>
+            </div>
+
+            {/* Center Section - Search (Desktop) */}
+            <div className="hidden md:flex flex-1 justify-center px-8">
+              <div className="relative w-full max-w-md">
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  className="w-full pl-10 pr-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary border-none"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+              </div>
+            </div>
+
+            {/* Right Section */}
+            <div className="flex items-center space-x-4">
+              {/* Cart Button */}
+              <button 
+                onClick={() => setIsCartOpen(true)}
+                className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <ShoppingCart className="h-6 w-6" />
+                {cartItems.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-primary text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {cartItems.length}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
-
-          {/* User Actions */}
-          <div className="hidden md:flex items-center space-x-4">
-            {session ? (
-              <>
-                <button 
-                  onClick={() => signOut()}
-                  className="nav-link"
-                >
-                  Sign Out
-                </button>
-                <Link href="/profile" className="nav-link">
-                  <User className="h-6 w-6" />
-                </Link>
-              </>
-            ) : (
-              <Link href="/signin" className="nav-link">
-                Sign In
-              </Link>
-            )}
-            
-            {/* Cart Icon */}
-            <button 
-            onClick={() => setIsCartOpen(true)}
-            className="relative group"
-            >
-            <ShoppingCart className="h-6 w-6 text-gray-700 dark:text-gray-300 group-hover:text-primary transition-colors" />
-            {cartItems.length > 0 && (
-                <span className="absolute -top-2 -right-2 bg-primary text-white text-xs font-medium rounded-full h-5 w-5 flex items-center justify-center">
-                {cartItems.length}
-                </span>
-            )}
-            </button>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-gray-700 dark:text-gray-300"
-            >
-              {isMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
-            </button>
-          </div>
         </div>
-      </div>
+      </nav>
 
-      {/* Mobile Menu */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-white dark:bg-gray-900 shadow-lg">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <Link href="/categories" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-              Categories
-            </Link>
-            <Link href="/deals" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-              Deals
-            </Link>
-            <Link href="/new-arrivals" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-              New Arrivals
-            </Link>
-            {session && (
-              <Link href="/account" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-                Account
-              </Link>
-            )}
-            {!session && (
-              <Link href="/signin" className="nav-link block px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-                Sign In
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
-      {/* Shopping Cart */}
-<Cart 
-  isOpen={isCartOpen} 
-  onClose={() => setIsCartOpen(false)} 
-/>
-    </nav>
+      {/* Game Dashboard Style Sidebar */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "tween", duration: 0.3 }}
+              className="fixed top-0 left-0 h-full w-80 bg-white dark:bg-gray-900 shadow-2xl z-50"
+            >
+              <div className="flex flex-col h-full">
+                {/* Sidebar Header */}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      {session?.user?.image ? (
+                        <img 
+                          src={session.user.image} 
+                          alt="Profile" 
+                          className="h-10 w-10 rounded-full"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <User className="h-6 w-6 text-primary" />
+                        </div>
+                      )}
+                      <div>
+                        <h2 className="font-semibold">
+                          {session?.user?.name || "Guest"}
+                        </h2>
+                        <p className="text-sm text-gray-500">
+                          {session?.user?.email || "Sign in to access more features"}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setIsSidebarOpen(false)}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sidebar Links */}
+                <div className="flex-1 overflow-y-auto py-4">
+                  <div className="space-y-1 px-3">
+                    {sidebarLinks.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                      >
+                        <link.icon className="h-5 w-5 text-gray-500 group-hover:text-primary" />
+                        <span className="flex-1">{link.label}</span>
+                        <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-primary" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sidebar Footer */}
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                  {session ? (
+                    <button
+                      onClick={() => signOut()}
+                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      <span>Sign Out</span>
+                    </button>
+                  ) : (
+                    <Link
+                      href="/signin"
+                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark transition-colors"
+                    >
+                      <User className="h-5 w-5" />
+                      <span>Sign In</span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Cart Component */}
+      <Cart 
+        isOpen={isCartOpen} 
+        onClose={() => setIsCartOpen(false)} 
+      />
+    </>
   );
 }
