@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react';
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import useCart from "@/hooks/useCart";
+import { useCart } from "@/context/CartContext";
 import ImageSlider from "@/components/contents/ImageSlider";
 
 const CATEGORIES = [
@@ -130,34 +130,43 @@ export default function Product() {
       return;
     }
   
-    // Set loading state for specific product
     setLoadingStates(prev => ({ ...prev, [product.id]: true }));
   
     try {
-      // Prepare the product data with all necessary fields for Cart.jsx
-      const productToAdd = {
+      const cartItem = {
         id: product.id,
         name: product.name,
         price: product.price,
         description: product.description,
         image: product.image,
         category: product.category,
-        quantity: 1 // Initial quantity when adding to cart
       };
   
-      // Get current quantity in cart if exists
-      const existingItem = cartItems.find(item => item.id === product.id);
-      const currentQuantity = existingItem ? existingItem.quantity : 0;
-  
-      // Add to cart with proper quantity
-      const success = await addToCart(productToAdd);
+      const success = await addToCart(cartItem);
   
       if (success) {
-        const { totalItems } = getCartSummary();
+        const { totalItems, subtotal } = getCartSummary();
+        
         toast.success(
-          existingItem 
-            ? `Updated ${product.name} quantity to ${currentQuantity + 1}`
-            : `Added ${product.name} to cart`
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 relative rounded overflow-hidden">
+                <Image 
+                  src={product.image}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div>
+                <p className="font-medium">{product.name}</p>
+                <p className="text-sm text-gray-500">Added to cart</p>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              Cart total: ${subtotal.toFixed(2)} ({totalItems} items)
+            </div>
+          </div>
         );
       }
     } catch (error) {

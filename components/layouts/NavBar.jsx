@@ -23,7 +23,8 @@ export default function NavBar() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { data: session } = useSession();
-  const { cartItems } = useCart();
+  const { cartItems, getCartSummary } = useCart();
+  const { totalItems, subtotal } = getCartSummary();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -91,17 +92,32 @@ export default function NavBar() {
 
             {/* Right Section - Always stays rightmost */}
             <div className="ml-auto">
-              <button 
-                onClick={() => setIsCartOpen(true)}
-                className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              >
-                <ShoppingCart className="h-6 w-6" />
-                {cartItems.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                    {cartItems.length}
-                  </span>
-                )}
-              </button>
+            <button 
+      onClick={() => setIsCartOpen(true)}
+      className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
+    >
+      <ShoppingCart className="h-6 w-6 group-hover:text-primary transition-colors" />
+      {cartItems.length > 0 && (
+        <div className="absolute -top-2 -right-2">
+          <span className="flex h-5 w-5 items-center justify-center bg-primary text-white text-xs font-bold rounded-full">
+            {totalItems > 99 ? '99+' : totalItems}
+          </span>
+          <span className="sr-only">{totalItems} items in cart</span>
+        </div>
+      )}
+      
+      {/* Mini cart preview on hover */}
+      {cartItems.length > 0 && (
+        <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+          <div className="p-4">
+            <div className="text-sm font-medium">Cart Summary</div>
+            <div className="mt-2 text-xs text-gray-500">
+              {totalItems} items · ${subtotal.toFixed(2)}
+            </div>
+          </div>
+        </div>
+      )}
+    </button>
             </div>
           </div>
         </div>

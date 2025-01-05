@@ -12,8 +12,8 @@ export function GlobalProvider({ children }) {
           <SessionProvider>
               <AuthProvider>
                 <CartProvider>
-                <ToastContainer position="bottom-right" />
-                {children}
+                  <ToastContainer position="bottom-right" />
+                  {children}
                 </CartProvider>
               </AuthProvider>
           </SessionProvider>
