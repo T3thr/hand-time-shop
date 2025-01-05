@@ -83,7 +83,7 @@ export const options = {
 
                     await LoginActivity.create({
                         userId: adminId,
-                        email: 'admin@pathy.com',
+                        email: 'admin@handtime.com',
                         name: 'admin',
                         username: 'Admin',
                         ipAddress: ipAddress,
@@ -91,7 +91,7 @@ export const options = {
                         lastLogin: new Date() // Update lastLogin time
                     });
 
-                    return { id: adminId, name: 'admin', username: 'Admin', email: 'admin@pathy.com', role: 'admin' };
+                    return { id: adminId, name: 'admin', username: 'Admin', email: 'admin@handtime.com', role: 'admin' };
                 }
 
                 throw new Error("No user found with this username");
