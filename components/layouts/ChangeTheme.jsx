@@ -26,7 +26,7 @@ export default function ChangeTheme() {
 
             {/* Animated Theme Toggle Button */}
             <div
-                className={`z-30 transform transition-all duration-500 ease-out absolute bottom-10 right-1 ${
+                className={`z-20 transform transition-all duration-500 ease-out absolute bottom-10 right-1 ${
                     isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
                 }`}
             >
