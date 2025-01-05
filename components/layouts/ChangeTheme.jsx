@@ -8,11 +8,11 @@ export default function ChangeTheme() {
     const [isVisible, setIsVisible] = useState(true); // State for showing/hiding toggle button
 
     return (
-        <div className="z-50 fixed bottom-0 right-4 ">
+        <div className="z-30 fixed bottom-0 right-4 ">
             {/* Fixed Up/Down Toggle Button */}
             <button
                 onClick={() => setIsVisible((prev) => !prev)}
-                className={`z-[999] w-20 h-6 flex items-center justify-center rounded-tl-lg rounded-tr-lg bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg hover:bg-gray-900 duration-300 fixed bottom-0 right-4 transition-all`}
+                className={`z-30 w-20 h-6 flex items-center justify-center rounded-tl-lg rounded-tr-lg bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg hover:bg-gray-900 duration-300 fixed bottom-0 right-4 transition-all`}
             >
                 {/* The Text Icon that will Rotate */}
                 <span
@@ -26,7 +26,7 @@ export default function ChangeTheme() {
 
             {/* Animated Theme Toggle Button */}
             <div
-                className={`z-50 transform transition-all duration-500 ease-out absolute bottom-10 right-1 ${
+                className={`z-30 transform transition-all duration-500 ease-out absolute bottom-10 right-1 ${
                     isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
                 }`}
             >
