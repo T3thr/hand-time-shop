@@ -145,7 +145,9 @@ export default function Product() {
       const success = await addToCart(cartItem);
   
       if (success) {
-        const { totalItems, subtotal } = getCartSummary();
+        // Calculate correct totals from cart items
+        const totalItems = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0) + 1;
+        const subtotal = cartItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0) + product.price;
         
         toast.success(
           <div className="flex flex-col">
