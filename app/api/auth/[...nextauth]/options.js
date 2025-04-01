@@ -1,17 +1,16 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import LineProvider from "next-auth/providers/line";
-import liff from '@line/liff';
 import User from "@/backend/models/User";
 import LoginActivity from "@/backend/models/LoginActivity";
 import mongodbConnect from "@/backend/lib/mongodb";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 
-export const authOptions = {
+export const options = {
   providers: [
     // Admin Credentials Provider
     CredentialsProvider({
+      id: "admin-credentials",
       name: "Admin Login",
       credentials: {
         username: { label: "Username", type: "text", placeholder: "Admin" },
@@ -20,14 +19,15 @@ export const authOptions = {
       async authorize(credentials, req) {
         await mongodbConnect();
 
-        const adminId = process.env.ADMIN_ID || new mongoose.Types.ObjectId();
+        // Check for hardcoded admin credentials first
         const adminPassword = process.env.ADMIN_PASSWORD;
-
         if (
-          credentials.username === "Admin" &&
-          credentials.password === adminPassword
+          credentials?.username === "Admin" &&
+          credentials?.password === adminPassword
         ) {
+          const adminId = process.env.ADMIN_ID || new mongoose.Types.ObjectId();
           const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+          
           await LoginActivity.create({
             userId: adminId,
             email: "admin@handtime.com",
@@ -46,119 +46,156 @@ export const authOptions = {
           };
         }
 
-        throw new Error("Invalid admin credentials");
-      },
-    }),
+        // Check database for admin users
+        const user = await User.findOne({ 
+          username: credentials?.username,
+          role: "admin"
+        }).select("+password");
 
-    // LINE Provider (OAuth 2.1, 2025 compatible) with LIFF integration
-    {
-      id: 'line',
-      name: 'LINE',
-      type: 'oauth',
-      version: '2.1',
-      clientId: process.env.LINE_CHANNEL_ID,
-      clientSecret: process.env.LINE_CHANNEL_SECRET,
-      authorization: {
-        url: "https://access.line.me/oauth2/v2.1/authorize",
-        params: {
-          scope: "profile openid",
-          response_type: "code",
-          nonce: "unique_nonce",
-        },
-      },
-      token: "https://api.line.me/oauth2/v2.1/token",
-      userinfo: "https://api.line.me/v2/profile",
-      async profile(profile) {
-        return {
-          id: profile.userId,
-          name: profile.displayName,
-          email: null, // LINE doesn't provide email by default
-          image: profile.pictureUrl,
-        };
-      },
-    }
-  ],
-  callbacks: {
-    async signIn({ user, account }) {
-      await mongodbConnect();
+        if (!user) return null;
 
-      if (account.provider === "line") {
-        let dbUser = await User.findOne({ lineId: user.id });
-        if (!dbUser) {
-          dbUser = await User.create({
-            lineId: user.id,
-            name: user.name,
-            email: user.email,
-            avatar: user.image,
-            role: "user",
-          });
-        } else {
-          dbUser.lastLogin = new Date();
-          await dbUser.save();
-        }
+        const isPasswordValid = await bcrypt.compare(
+          credentials?.password,
+          user.password
+        );
 
+        if (!isPasswordValid) return null;
+
+        const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+        
         await LoginActivity.create({
-          userId: dbUser._id,
-          name: dbUser.name,
-          email: dbUser.email,
-          username: "LINE User",
-          role: "user",
+          userId: user._id,
+          email: user.email,
+          name: user.name,
+          username: user.username,
+          ipAddress,
+          role: user.role,
           lastLogin: new Date(),
         });
 
-        user.id = dbUser._id;
-        user.role = dbUser.role;
-      }
-      return true;
-    },
+        return {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        };
+      },
+    }),
+
+    // User Credentials Provider
+    CredentialsProvider({
+      id: "user-credentials",
+      name: "User Login",
+      credentials: {
+        username: { label: "Username", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials, req) {
+        await mongodbConnect();
+
+        const user = await User.findOne({ 
+          username: credentials?.username,
+          role: "user"
+        }).select("+password");
+
+        if (!user) return null;
+
+        const isPasswordValid = await bcrypt.compare(
+          credentials?.password,
+          user.password
+        );
+
+        if (!isPasswordValid) return null;
+
+        const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+        
+        await LoginActivity.create({
+          userId: user._id,
+          email: user.email,
+          name: user.name,
+          username: user.username,
+          ipAddress,
+          role: user.role,
+          lastLogin: new Date(),
+        });
+
+        return {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        };
+      },
+    }),
+
+    // LINE Provider
+    CredentialsProvider({
+      id: "line",
+      name: "LINE",
+      credentials: {
+        userId: { label: "User ID", type: "text" },
+        displayName: { label: "Display Name", type: "text" },
+        pictureUrl: { label: "Picture URL", type: "text" },
+      },
+      async authorize(credentials) {
+        await mongodbConnect();
+
+        if (!credentials?.userId) return null;
+
+        let user = await User.findOne({ lineId: credentials.userId });
+        
+        if (!user) {
+          user = await User.create({
+            lineId: credentials.userId,
+            name: credentials.displayName,
+            avatar: credentials.pictureUrl,
+            role: "user",
+          });
+        }
+
+        await LoginActivity.create({
+          userId: user._id,
+          name: user.name,
+          role: user.role,
+          lastLogin: new Date(),
+        });
+
+        return {
+          id: user._id,
+          name: user.name,
+          email: user.email || null,
+          image: user.avatar,
+          role: user.role,
+        };
+      },
+    }),
+  ],
+  callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.name = user.name;
-        token.email = user.email;
-        token.image = user.image;
       }
       return token;
     },
     async session({ session, token }) {
-      session.user.id = token.id;
-      session.user.role = token.role;
-      session.user.name = token.name;
-      session.user.email = token.email;
-      session.user.image = token.image;
+      if (token) {
+        session.user.id = token.id;
+        session.user.role = token.role;
+      }
       return session;
     },
   },
   pages: {
-    signIn: process.env.NEXT_PUBLIC_LIFF_URL || "https://liff.line.me/2007182579-GE51lXKX",
+    signIn: "/signin",
     error: "/auth/error",
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  events: {
-    async signIn({ user, account, profile }) {
-      // Additional LIFF login handling if needed
-    },
-  },
-  // LIFF specific initialization
-  adapter: {
-    async login() {
-      await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
-      if (!liff.isLoggedIn()) {
-        liff.login();
-      }
-    },
-    async logout() {
-      await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
-      if (liff.isLoggedIn()) {
-        liff.logout();
-      }
-    }
-  }
 };
 
-export default NextAuth(authOptions);
+export default options;

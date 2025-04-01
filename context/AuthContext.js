@@ -1,49 +1,48 @@
-// AuthContext.js
-
 "use client";
 
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { createContext, useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { signIn as nextAuthSignIn, getSession } from "next-auth/react";
+import { signIn as nextAuthSignIn, signOut as nextAuthSignOut, getSession } from "next-auth/react";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // Stores user data
-  const [role, setRole] = useState("user"); // Default role to "user"
+  const [user, setUser] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Fetch the current session and user data when the component mounts
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        setLoading(true);
-        const session = await getSession();
-        if (session) {
-          setUser(session.user);
-          setRole(session.user.role || "user"); // Use role from session if available
-        } else {
-          setUser(null);
-          setRole("user");
-        }
-        setLoading(false);
-      } catch (error) {
-        setLoading(false);
-        console.error("Failed to fetch user data:", error);
+  const fetchUser = async () => {
+    try {
+      setLoading(true);
+      const session = await getSession();
+      if (session) {
+        setUser(session.user);
+      } else {
+        setUser(null);
       }
-    };
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      console.error("Failed to fetch user data:", error);
+    }
+  };
 
+  useEffect(() => {
     fetchUser();
   }, []);
 
   const signupUser = async ({ name, username, email, password }) => {
     try {
       setLoading(true);
-      const { data, status } = await axios.post("/api/auth/signup", { name, username, email, password });
+      const { data, status } = await axios.post("/api/auth/signup", { 
+        name, 
+        username, 
+        email, 
+        password 
+      });
       setLoading(false);
 
       if (status === 201) {
@@ -51,7 +50,6 @@ export const AuthProvider = ({ children }) => {
           autoClose: 3000,
           onClose: () => router.push("/signin"),
         });
-        setUser(data.user); // Set user state after signup
       }
     } catch (error) {
       setLoading(false);
@@ -60,66 +58,69 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const loginUser = async ({ username, email, password }) => {
+  const loginUser = async ({ username, password }) => {
     try {
       setLoading(true);
-      const res = await nextAuthSignIn("credentials", {
+      const res = await nextAuthSignIn("user-credentials", {
         redirect: false,
         username,
-        email,
         password,
       });
       setLoading(false);
 
-      if (res.error) {
-        if (res.error.includes("verify your email")) {
-          router.push("/resend-verification");
-        }
+      if (res?.error) {
         toast.error(res.error);
         return { success: false, message: res.error };
-      } else if (res.ok) {
-        await fetchUser(); // Update user and role after successful login
+      }
+
+      if (res?.ok) {
+        await fetchUser();
         return { success: true };
       }
     } catch (error) {
       setLoading(false);
-      const errorMessage = error.response?.data?.message || "Signin failed";
-      toast.error(errorMessage);
-      return { success: false, message: errorMessage };
+      toast.error("Signin failed");
+      return { success: false, message: "Signin failed" };
     }
   };
 
-  // Adjusted adminSignIn function to work with options.js credentials for admin
-  const adminSignIn = async () => {
+  const adminSignIn = async ({ username, password }) => {
     try {
       setLoading(true);
-      const res = await nextAuthSignIn("credentials", {
+      const res = await nextAuthSignIn("admin-credentials", {
         redirect: false,
-        username: "Admin", // Must match the hardcoded username in options.js
-        password: "admin123", // Must match the hardcoded password in options.js
+        username,
+        password,
       });
       setLoading(false);
 
-      if (res.error) {
+      if (res?.error) {
         toast.error(res.error);
         return { success: false, message: res.error };
       }
 
-      if (res.ok) {
-        toast.success("Admin signin successful!", {
-          autoClose: 1000,
-          onClose: async () => {
-            await fetchUser(); // Update user and role after successful admin login
-            window.location.reload();
-          },
-        });
+      if (res?.ok) {
+        await fetchUser();
+        toast.success("Admin login successful!");
         return { success: true };
       }
     } catch (error) {
       setLoading(false);
-      const errorMessage = error.response?.data?.message || "Signin failed";
-      toast.error(errorMessage);
-      return { success: false, message: errorMessage };
+      toast.error("Admin signin failed");
+      return { success: false, message: "Admin signin failed" };
+    }
+  };
+
+  const logoutUser = async () => {
+    try {
+      setLoading(true);
+      await nextAuthSignOut({ redirect: false });
+      setUser(null);
+      setLoading(false);
+      router.push("/signin");
+    } catch (error) {
+      setLoading(false);
+      toast.error("Logout failed");
     }
   };
 
@@ -131,12 +132,12 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
-        role,
         error,
         loading,
         signupUser,
         loginUser,
         adminSignIn,
+        logoutUser,
         setUser,
         clearErrors,
       }}
