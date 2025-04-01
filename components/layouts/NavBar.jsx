@@ -6,7 +6,7 @@ import { useCart } from "@/context/CartContext";
 import { 
   Menu, ShoppingCart, User, X, Home,
   Tag, Sparkles, LogOut, ChevronRight,
-  Settings, Shield
+  Settings, Shield, Copy, Eye, EyeOff
 } from "lucide-react";
 import Cart from './Cart';
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,6 +14,7 @@ import Search from './Search';
 import { toast } from "react-toastify";
 import AuthContext from "@/context/AuthContext";
 import SigninModal from "@/components/auth/SigninModal";
+import SignoutModal from "@/components/auth/SignoutModal";
 import { FaLine } from 'react-icons/fa';
 import liff from '@line/liff';
 
@@ -29,8 +30,10 @@ export default function NavBar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSigninModalOpen, setIsSigninModalOpen] = useState(false);
+  const [isSignoutModalOpen, setIsSignoutModalOpen] = useState(false);
   const [isLineLoading, setIsLineLoading] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [showUserId, setShowUserId] = useState(false);
   const { data: session } = useSession();
   const { cartItems, getCartSummary } = useCart();
   const { totalItems, subtotal } = getCartSummary();
@@ -86,6 +89,43 @@ export default function NavBar() {
     }
   }, []);
 
+  const handleLogoutConfirmation = useCallback(() => {
+    setIsSignoutModalOpen(true);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      // Sign out from NextAuth if session exists
+      if (session) {
+        await signOut({ callbackUrl: '/' });
+      }
+      
+      // Sign out from LINE LIFF if logged in
+      if (liff.isLoggedIn()) {
+        liff.logout();
+      }
+      
+      // Clear local storage
+      localStorage.removeItem('lineUserId');
+      
+      // Close the modal
+      setIsSignoutModalOpen(false);
+      
+      // Reload the page to reset state
+      window.location.reload();
+    } catch (error) {
+      toast.error("Failed to sign out");
+      console.error("Logout error:", error);
+    }
+  }, [session]);
+
+  const copyUserId = useCallback(() => {
+    if (profile?.userId) {
+      navigator.clipboard.writeText(profile.userId);
+      toast.success("User ID copied to clipboard");
+    }
+  }, [profile]);
+
   const getUserAvatar = useCallback(() => {
     if (session?.user?.image) {
       return (
@@ -123,19 +163,55 @@ export default function NavBar() {
     );
   }, [session]);
 
+  const renderUserInfo = useCallback(() => {
+    if (session?.user?.email) {
+      return session.user.email;
+    } else if (profile?.userId) {
+      return (
+        <div className="flex items-center space-x-2">
+          <span>LINE User</span>
+          <div className="flex items-center space-x-1">
+            <button 
+              onClick={() => setShowUserId(!showUserId)}
+              className="p-1 rounded hover:bg-container"
+              aria-label={showUserId ? "Hide User ID" : "Show User ID"}
+            >
+              {showUserId ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+            {showUserId && (
+              <div className="flex items-center space-x-1">
+                <span className="text-xs bg-container px-2 py-1 rounded">
+                  {profile.userId}
+                </span>
+                <button 
+                  onClick={copyUserId}
+                  className="p-1 rounded hover:bg-container"
+                  aria-label="Copy User ID"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return "Sign in to access more features";
+  }, [session, profile, showUserId, copyUserId]);
+
   return (
     <>
       <nav className={`fixed w-full z-40 transition-all duration-300 ${
-        isScrolled ? "bg-white/95 dark:bg-gray-900/95 shadow-md backdrop-blur-sm" : "bg-transparent"
+        isScrolled ? "bg-surface-card/95 shadow-md backdrop-blur-sm" : "bg-transparent"
       }`}>
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-16">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-2 hover:bg-container rounded-lg transition-colors"
               aria-label="Open menu"
             >
-              <Menu className="h-6 w-6" />
+              <Menu className="h-6 w-6 text-foreground" />
             </button>
 
             <Link href="/" className="ml-4 flex-shrink-0" aria-label="Home">
@@ -148,21 +224,21 @@ export default function NavBar() {
 
             <button 
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
+              className="relative p-2 hover:bg-container rounded-lg transition-colors group"
               aria-label="Cart"
             >
-              <ShoppingCart className="h-6 w-6 group-hover:text-primary transition-colors" />
+              <ShoppingCart className="h-6 w-6 text-foreground group-hover:text-primary transition-colors" />
               {cartItems.length > 0 && (
                 <>
                   <div className="absolute -top-2 -right-2">
-                    <span className="flex h-5 w-5 items-center justify-center bg-primary text-white text-xs font-bold rounded-full">
+                    <span className="flex h-5 w-5 items-center justify-center bg-primary text-text-inverted text-xs font-bold rounded-full">
                       {Math.min(totalItems, 99)}{totalItems > 99 ? '+' : ''}
                     </span>
                   </div>
-                  <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-colors pointer-events-none">
+                  <div className="absolute right-0 mt-2 w-72 bg-surface-card rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-colors pointer-events-none border border-border-primary">
                     <div className="p-4">
-                      <div className="text-sm font-medium">Cart Summary</div>
-                      <div className="mt-2 text-xs text-gray-500">
+                      <div className="text-sm font-medium text-foreground">Cart Summary</div>
+                      <div className="mt-2 text-xs text-text-secondary">
                         {totalItems} items · ${subtotal.toFixed(2)}
                       </div>
                     </div>
@@ -189,31 +265,31 @@ export default function NavBar() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "tween", duration: 0.3 }}
-              className="fixed top-0 left-0 h-full w-80 bg-white dark:bg-gray-900 shadow-2xl z-50"
+              className="fixed top-0 left-0 h-full w-80 bg-surface-card shadow-2xl z-50 border-r border-border-primary"
             >
               <div className="flex flex-col h-full">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="p-4 border-b border-border-primary">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       {getUserAvatar()}
                       <div>
                         <div className="flex items-center space-x-2">
-                          <h2 className="font-semibold">
-                            {session?.user?.name || "Guest"}
+                          <h2 className="font-semibold text-foreground">
+                            {session?.user?.name || profile?.displayName || "Guest"}
                           </h2>
                           {getUserRoleBadge()}
                         </div>
-                        <p className="text-sm text-gray-500">
-                          {session?.user?.email || "Sign in to access more features"}
+                        <p className="text-sm text-text-secondary">
+                          {renderUserInfo()}
                         </p>
                       </div>
                     </div>
                     <button 
                       onClick={() => setIsSidebarOpen(false)}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+                      className="p-2 hover:bg-container rounded-full"
                       aria-label="Close menu"
                     >
-                      <X className="h-5 w-5" />
+                      <X className="h-5 w-5 text-foreground" />
                     </button>
                   </div>
                 </div>
@@ -224,36 +300,36 @@ export default function NavBar() {
                       <Link
                         key={href}
                         href={href}
-                        className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                        className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-container transition-colors group"
                       >
-                        <Icon className="h-5 w-5 text-gray-500 group-hover:text-primary" />
-                        <span className="flex-1">{label}</span>
-                        <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-primary" />
+                        <Icon className="h-5 w-5 text-text-secondary group-hover:text-primary" />
+                        <span className="flex-1 text-foreground">{label}</span>
+                        <ChevronRight className="h-4 w-4 text-text-tertiary group-hover:text-primary" />
                       </Link>
                     ))}
                   </div>
                 </div>
 
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-                  {session ? (
+                <div className="p-4 border-t border-border-primary">
+                  {session || profile ? (
                     <button
-                      onClick={() => signOut()}
-                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      onClick={handleLogoutConfirmation}
+                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-container hover:bg-container/80 transition-colors"
                     >
-                      <LogOut className="h-5 w-5" />
-                      <span>Sign Out</span>
+                      <LogOut className="h-5 w-5 text-foreground" />
+                      <span className="text-foreground">Sign Out</span>
                     </button>
                   ) : (
                     <div className="space-y-2">
                       <button
                         onClick={handleLineSignIn}
                         disabled={isLineLoading}
-                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-[#06C755] text-white hover:bg-[#05b54d] transition-colors"
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-[#06C755] text-text-inverted hover:bg-[#05b54d] transition-colors"
                       >
                         {isLineLoading ? (
                           <>
-                            <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                            Signing in...
+                            <span className="animate-spin h-5 w-5 border-2 border-text-inverted border-t-transparent rounded-full" />
+                            <span>Signing in...</span>
                           </>
                         ) : (
                           <>
@@ -264,7 +340,7 @@ export default function NavBar() {
                       </button>
                       <button
                         onClick={() => setIsSigninModalOpen(true)}
-                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark transition-colors"
+                        className="w-full btn-primary flex items-center justify-center space-x-2 px-4 py-2 rounded-lg"
                       >
                         <User className="h-5 w-5" />
                         <span>Admin Sign In</span>
@@ -282,6 +358,12 @@ export default function NavBar() {
         isOpen={isSigninModalOpen}
         onClose={() => setIsSigninModalOpen(false)}
         adminSignIn={adminSignIn}
+      />
+
+      <SignoutModal
+        isOpen={isSignoutModalOpen}
+        onClose={() => setIsSignoutModalOpen(false)}
+        onConfirm={handleLogout}
       />
 
       <Cart 
