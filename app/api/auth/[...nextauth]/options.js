@@ -131,7 +131,7 @@ export const authOptions = {
     },
   },
   pages: {
-    signIn: process.env.NEXT_PUBLIC_LIFF_URL ,
+    signIn: process.env.NEXT_PUBLIC_LIFF_URL || "https://liff.line.me/2007182579-GE51lXKX",
     error: "/auth/error",
   },
   secret: process.env.NEXTAUTH_SECRET,
