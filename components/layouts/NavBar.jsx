@@ -127,6 +127,28 @@ export default function NavBar() {
   }, [profile]);
 
   const getUserAvatar = useCallback(() => {
+    // Show admin avatar first if admin session exists
+    if (session?.user?.role === 'admin') {
+      return (
+        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+          <Shield className="h-5 w-5 text-blue-600" />
+        </div>
+      );
+    }
+    
+    // Show LINE profile picture if available
+    if (profile?.pictureUrl) {
+      return (
+        <img 
+          src={profile.pictureUrl} 
+          alt="Profile" 
+          className="h-10 w-10 rounded-full object-cover"
+          loading="lazy"
+        />
+      );
+    }
+    
+    // Show NextAuth user image if available
     if (session?.user?.image) {
       return (
         <img 
@@ -136,19 +158,15 @@ export default function NavBar() {
           loading="lazy"
         />
       );
-    } else if (session?.user?.role === 'admin') {
-      return (
-        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-          <Shield className="h-5 w-5 text-blue-600" />
-        </div>
-      );
     }
+    
+    // Default avatar
     return (
       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
         <User className="h-6 w-6 text-primary" />
       </div>
     );
-  }, [session]);
+  }, [session, profile]);
 
   const getUserRoleBadge = useCallback(() => {
     if (!session?.user?.role) return null;
@@ -168,8 +186,8 @@ export default function NavBar() {
       return session.user.email;
     } else if (profile?.userId) {
       return (
-        <div className="flex items-center space-x-2">
-          <span>LINE User</span>
+        <div className="flex flex-col space-y-2">
+          <span className="truncate">LINE User</span>
           <div className="flex items-center space-x-1">
             <button 
               onClick={() => setShowUserId(!showUserId)}
@@ -179,13 +197,13 @@ export default function NavBar() {
               {showUserId ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
             {showUserId && (
-              <div className="flex items-center space-x-1">
-                <span className="text-xs bg-container px-2 py-1 rounded">
+              <div className="flex items-center space-x-1 max-w-full overflow-hidden">
+                <span className="text-xs bg-container px-2 py-1 rounded truncate">
                   {profile.userId}
                 </span>
                 <button 
                   onClick={copyUserId}
-                  className="p-1 rounded hover:bg-container"
+                  className="p-1 rounded hover:bg-container flex-shrink-0"
                   aria-label="Copy User ID"
                 >
                   <Copy size={14} />
@@ -272,9 +290,9 @@ export default function NavBar() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       {getUserAvatar()}
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center space-x-2">
-                          <h2 className="font-semibold text-foreground">
+                          <h2 className="font-semibold text-foreground truncate">
                             {session?.user?.name || profile?.displayName || "Guest"}
                           </h2>
                           {getUserRoleBadge()}
@@ -286,7 +304,7 @@ export default function NavBar() {
                     </div>
                     <button 
                       onClick={() => setIsSidebarOpen(false)}
-                      className="p-2 hover:bg-container rounded-full"
+                      className="p-2 hover:bg-container rounded-full flex-shrink-0"
                       aria-label="Close menu"
                     >
                       <X className="h-5 w-5 text-foreground" />
