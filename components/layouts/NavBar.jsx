@@ -14,6 +14,7 @@ import Search from './Search';
 import { toast } from "react-toastify";
 import AuthContext from "@/context/AuthContext";
 import SigninModal from "@/components/auth/SigninModal";
+import { FaLine } from 'react-icons/fa'; 
 
 const sidebarLinks = [
   { href: "/", icon: Home, label: "Home" },
@@ -219,7 +220,10 @@ export default function NavBar() {
                             Signing in...
                           </>
                         ) : (
-                          "Sign in with LINE"
+                          <>
+                          <FaLine className="h-5 w-5" /> {/* Line icon */}
+                          <span>Sign in with LINE</span>
+                          </>
                         )}
                       </button>
                       <button
