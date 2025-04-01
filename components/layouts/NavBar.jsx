@@ -127,7 +127,7 @@ export default function NavBar() {
   }, [profile]);
 
   const getUserAvatar = useCallback(() => {
-    if (session?.user?.image || profile.pictureUrl) {
+    if (session?.user?.image) {
       return (
         <img 
           src={session.user.image} 
