@@ -1,172 +1,141 @@
+import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
+import LineProvider from "next-auth/providers/line"; // Requires next-auth v4.24+ or custom provider
 import User from "@/backend/models/User";
-import GoogleUser from "@/backend/models/GoogleUser";
+import LoginActivity from "@/backend/models/LoginActivity";
 import mongodbConnect from "@/backend/lib/mongodb";
 import bcrypt from "bcryptjs";
-import LoginActivity from "@/backend/models/LoginActivity";
 import mongoose from "mongoose";
 
-export const options = {
-    providers: [
-        CredentialsProvider({
-            name: "Credentials",
-            credentials: {
-                username: { label: "Username", type: "text", placeholder: "Enter your username" },
-                email: { label: "Email", type: "text", placeholder: "Enter your email" },
-                password: { label: "Password", type: "password" },
-            },
-            async authorize(credentials, req) {
-                await mongodbConnect();
+export const authOptions = {
+  providers: [
+    // Admin Credentials Provider
+    CredentialsProvider({
+      name: "Admin Login",
+      credentials: {
+        username: { label: "Username", type: "text", placeholder: "Admin" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials, req) {
+        await mongodbConnect();
 
-                // Check for email sign-in
-                if (credentials.email) {
-                    const user = await User.findOne({ email: credentials.email }).select("+password");
-                    if (!user) throw new Error("No user found with this email");
+        const adminId = process.env.ADMIN_ID || new mongoose.Types.ObjectId();
+        const adminPassword = process.env.ADMIN_PASSWORD;
 
-                    if (!user.isVerified) {
-                        throw new Error("Please verify your email before signing in");
-                    }
+        if (
+          credentials.username === "Admin" &&
+          credentials.password === adminPassword
+        ) {
+          const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+          await LoginActivity.create({
+            userId: adminId,
+            email: "admin@handtime.com",
+            name: "Admin",
+            username: "Admin",
+            ipAddress,
+            role: "admin",
+            lastLogin: new Date(),
+          });
 
-                    const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-                    if (!isPasswordValid) throw new Error("Incorrect password");
+          return {
+            id: adminId,
+            name: "Admin",
+            email: "admin@handtime.com",
+            role: "admin",
+          };
+        }
 
-                    // Update lastLogin field
-                    user.lastLogin = new Date();
-                    await user.save();
+        throw new Error("Invalid admin credentials");
+      },
+    }),
 
-                    const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-                    await LoginActivity.create({
-                        userId: user._id,
-                        name: user.name,
-                        email: user.email,
-                        username: user.username,
-                        ipAddress,
-                        lastLogin: user.lastLogin // Use updated lastLogin time
-                    });
-
-                    return { id: user._id, role: user.role, ...user.toObject() };
-                }
-
-                // Check for username sign-in
-                const user = await User.findOne({ username: credentials.username }).select("+password");
-                if (user) {
-                    if (!user.isVerified) {
-                        throw new Error("Please verify your email before signing in");
-                    }
-                    const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-                    if (!isPasswordValid) throw new Error("Incorrect password");
-
-                    // Update lastLogin field
-                    user.lastLogin = new Date();
-                    await user.save();
-
-                    const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-                    await LoginActivity.create({
-                        userId: user._id,
-                        name: user.name,
-                        email: user.email,
-                        username: user.username,
-                        ipAddress,
-                        lastLogin: user.lastLogin // Use updated lastLogin time
-                    });
-
-                    return { id: user._id, role: user.role, ...user.toObject() };
-                }
-
-                // Admin credentials check
-                const adminId = new mongoose.Types.ObjectId(); // Use a predefined admin ID from environment variable
-                const adminPassword = process.env.ADMIN_PASSWORD; 
-
-                if (credentials.username === 'Admin' && credentials.password === adminPassword) {
-                    const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-
-                    await LoginActivity.create({
-                        userId: adminId,
-                        email: 'admin@handtime.com',
-                        name: 'admin',
-                        username: 'Admin',
-                        ipAddress: ipAddress,
-                        role: 'admin',
-                        lastLogin: new Date() // Update lastLogin time
-                    });
-
-                    return { id: adminId, name: 'admin', username: 'Admin', email: 'admin@handtime.com', role: 'admin' };
-                }
-
-                throw new Error("No user found with this username");
-            },
-        }),
-
-        GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            authorization: {
-                params: {
-                    prompt: "consent",
-                    access_type: "offline",
-                },
-            },
-            async profile(profile, req) { // Add req to the parameters to access the request object
-                await mongodbConnect();
-                const existingUser = await GoogleUser.findOne({ email: profile.email });
-                
-
-                if (existingUser) {
-                    existingUser.lastLogin = new Date();
-                    await existingUser.save();
-                } else {
-                    await GoogleUser.create({
-                        name: profile.name,
-                        email: profile.email,
-                        avatar: { url: profile.picture },
-                        role : 'user',
-                        lastLogin: new Date(),
-                    });
-                }
-
-                // Log the login activity for Google sign-in
-                await LoginActivity.create({
-                    userId: existingUser ? existingUser._id : mongoose.Types.ObjectId(), 
-                    email: profile.email,
-                    name: profile.name,
-                    username: 'google user',
-                    role : 'user',
-                    lastLogin: new Date(),
-                });
-
-                return { id: profile.sub, name: profile.name, email: profile.email, image: profile.picture, role: existingUser?.role || 'user' };
-            },
-        }),
-    ],
-    callbacks: {
-        async signIn({ user, account, profile }) {
-            if (account.provider === 'google') {
-                user.role = 'user';
-            }
-            return true;
+    // LINE Provider (OAuth 2.1, 2025 compatible)
+    LineProvider({
+      clientId: process.env.LINE_CHANNEL_ID,
+      clientSecret: process.env.LINE_CHANNEL_SECRET,
+      authorization: {
+        url: "https://access.line.me/oauth2/v2.1/authorize",
+        params: {
+          scope: "profile openid email", // Request profile, OpenID, and email
+          prompt: "consent",
+          response_type: "code",
         },
-        async jwt({ token, user }) {
-            if (user) {
-                token.id = user.id;
-                token.name = user.name;
-                token.email = user.email;
-                token.role = user.role;
-                token.avatar = user.avatar;
-            }
-            return token;
+      },
+      token: {
+        url: "https://api.line.me/oauth2/v2.1/token",
+        params: {
+          grant_type: "authorization_code",
         },
-        async session({ session, token }) {
-            session.user.id = token.id;
-            session.user.name = token.name;
-            session.user.email = token.email;
-            session.user.role = token.role;
-            session.user.avatar = token.avatar;
-            return session;
-        },
+      },
+      userinfo: "https://api.line.me/v2/profile",
+      profile(profile) {
+        return {
+          id: profile.sub, // LINE user ID
+          name: profile.name,
+          email: profile.email || null, // Optional
+          image: profile.picture,
+        };
+      },
+    }),
+  ],
+  callbacks: {
+    async signIn({ user, account }) {
+      await mongodbConnect();
+
+      if (account.provider === "line") {
+        let dbUser = await User.findOne({ lineId: user.id });
+        if (!dbUser) {
+          dbUser = await User.create({
+            lineId: user.id,
+            name: user.name,
+            email: user.email,
+            avatar: user.image,
+            role: "user",
+          });
+        } else {
+          dbUser.lastLogin = new Date();
+          await dbUser.save();
+        }
+
+        await LoginActivity.create({
+          userId: dbUser._id,
+          name: dbUser.name,
+          email: dbUser.email,
+          username: "LINE User",
+          role: "user",
+          lastLogin: new Date(),
+        });
+
+        user.id = dbUser._id;
+        user.role = dbUser.role;
+      }
+      return true;
     },
-    secret: process.env.NEXTAUTH_SECRET,
-    debug: true,
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = user.role;
+        token.name = user.name;
+        token.email = user.email;
+        token.image = user.image;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      session.user.id = token.id;
+      session.user.role = token.role;
+      session.user.name = token.name;
+      session.user.email = token.email;
+      session.user.image = token.image;
+      return session;
+    },
+  },
+  pages: {
+    signIn: "https://liff.line.me/2007182579-GE51lXKX",
+    error: "/auth/error",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 };
 
-export default options;
+export default NextAuth(authOptions);

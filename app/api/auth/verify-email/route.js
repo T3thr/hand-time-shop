@@ -4,7 +4,6 @@ import mongodbConnect from "@/backend/lib/mongodb";
 import crypto from 'crypto';
 import { sendVerificationEmail } from "@/backend/utils/sendemail"; // Make sure this import path is correct
 
-
 export async function GET(req) {
   try {
     await mongodbConnect();

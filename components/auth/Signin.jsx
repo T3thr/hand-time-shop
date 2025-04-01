@@ -6,14 +6,17 @@ import { useSession, signIn } from "next-auth/react";
 import AuthContext from "@/context/AuthContext";
 import { toast } from "react-toastify";
 import { useRouter, useSearchParams } from "next/navigation";
+import { LockKeyhole, User as UserIcon, ChevronDown, ChevronUp } from "lucide-react";
+import Image from "next/image";
+import { FaLine } from "react-icons/fa";
 
 const Signin = () => {
   const { data: session } = useSession();
   const { error, clearErrors } = useContext(AuthContext);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
-  const [isUsernameSignIn, setIsUsernameSignIn] = useState(true);
+  const [password, setPassword] = useState("");
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
   const params = useSearchParams();
@@ -21,7 +24,7 @@ const Signin = () => {
 
   useEffect(() => {
     if (session) {
-      router.push(callBackUrl || "/"); // Redirect to the callback URL if available
+      router.push(callBackUrl || "/");
     }
   }, [session, callBackUrl, router]);
 
@@ -32,123 +35,155 @@ const Signin = () => {
     }
   }, [error]);
 
-  const submitHandler = async (e) => {
+  const handleAdminLogin = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
     
-    const credentials = isUsernameSignIn ? { username, password } : { email, password };
-    const result = await signIn("credentials", { redirect: false, ...credentials });
+    try {
+      const result = await signIn("admin-credentials", { 
+        redirect: false, 
+        username, 
+        password 
+      });
 
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      setTimeout(() => {
-        router.push(callBackUrl || "/"); // Redirect to the callback URL or home
-        window.location.reload();
-      }, 700);
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Admin login successful!", { autoClose: 2000 });
+        router.push(callBackUrl || "/admin/dashboard");
+      }
+    } catch (err) {
+      toast.error("An error occurred during login");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    console.log("Redirecting to Google sign-in..."); // Log to console
-    await signIn("google", { redirect: true });
+  const handleLineSignIn = async () => {
+    await signIn("line", { callbackUrl: callBackUrl || "/" });
   };
-
-  useEffect(() => {
-    if (session) {
-      toast.success("signin successful!", { autoClose: 2000 });
-      router.push(callBackUrl || "/"); // Redirect to the callback URL or home
-    }
-  }, [session, callBackUrl, router]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background text-foreground transition-all duration-500 ease-in-out">
-      <div className="bg-surface-card shadow-md rounded-lg p-8 max-w-md w-full border border-border-primary">
-        <h2 className="mb-5 text-3xl font-bold text-center text-foreground">Welcome Back</h2>
+    <div className="flex items-center justify-center min-h-screen bg-background text-foreground transition-all duration-500 ease-in-out p-4">
+      <div className="bg-surface-card shadow-lg rounded-xl p-8 max-w-md w-full border border-border-primary">
+        <div className="flex justify-center mb-6">
+          <Link href="/">
+            <Image 
+              src="/logo.png" 
+              alt="Logo" 
+              width={120} 
+              height={40} 
+              className="h-10 w-auto"
+              priority
+            />
+          </Link>
+        </div>
+        
+        <h2 className="mb-6 text-2xl font-bold text-center text-foreground">
+          Welcome Back
+        </h2>
 
-        <div className="flex justify-center mb-4">
+        {/* Primary LINE Login Button */}
+        <div className="mb-8">
           <button
-            className={`py-2 px-4 rounded-l-lg transition-colors duration-200 ${
-              isUsernameSignIn
-                ? "bg-primary text-text-inverted"
-                : "bg-background-secondary text-text-secondary"
-            }`}
-            onClick={() => setIsUsernameSignIn(true)}
+            onClick={handleLineSignIn}
+            className="flex items-center justify-center w-full bg-[#06C755] text-white py-3 rounded-md hover:bg-[#05b54d] transition duration-200"
           >
-            Username Sign In
-          </button>
-          <button
-            className={`py-2 px-4 rounded-r-lg transition-colors duration-200 ${
-              !isUsernameSignIn
-                ? "bg-primary text-text-inverted"
-                : "bg-background-secondary text-text-secondary"
-            }`}
-            onClick={() => setIsUsernameSignIn(false)}
-          >
-            Email Sign In
+            <FaLine className="w-5 h-5 mr-2" />
+            Sign in with LINE
           </button>
         </div>
 
-        <form onSubmit={submitHandler}>
-          {isUsernameSignIn ? (
-            <div className="mb-4">
-              <label className="block mb-1 font-medium text-text-secondary">Username</label>
-              <input
-                className="border border-border-primary bg-container rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
-            </div>
-          ) : (
-            <div className="mb-4">
-              <label className="block mb-1 font-medium text-text-secondary">Email</label>
-              <input
-                className="border border-border-primary bg-container rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-          )}
-          <div className="mb-4">
-            <label className="block mb-1 font-medium text-text-secondary">Password</label>
-            <input
-              className="border border-border-primary bg-container rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary w-full text-foreground"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+        {/* Admin Login Toggle */}
+        <div className="mb-4">
           <button
-            className="w-full bg-primary text-text-inverted py-2 rounded-md hover:bg-primary-dark transition duration-200 mb-4"
-            type="submit"
+            onClick={() => setShowAdminLogin(!showAdminLogin)}
+            className="flex items-center justify-center w-full text-sm text-primary hover:text-primary-dark transition-colors"
           >
-            Sign In
+            <LockKeyhole className="w-4 h-4 mr-1" />
+            Admin Login
+            {showAdminLogin ? (
+              <ChevronUp className="w-4 h-4 ml-1" />
+            ) : (
+              <ChevronDown className="w-4 h-4 ml-1" />
+            )}
           </button>
-        </form>
+        </div>
 
-        <button
-          className="w-full bg-error text-text-inverted py-2 rounded-md hover:bg-error/90 transition duration-200 mb-4"
-          onClick={handleGoogleSignIn}
-        >
-          Sign in with Google
-        </button>
+        {/* Admin Login Form - Only shown when toggled */}
+        {showAdminLogin && (
+          <form onSubmit={handleAdminLogin} className="mt-4 border-t border-border-primary pt-4">
+            <div className="mb-4">
+              <label className="block mb-2 text-sm font-medium text-text-secondary">
+                Admin Username
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <UserIcon className="h-5 w-5 text-text-tertiary" />
+                </div>
+                <input
+                  className="block w-full pl-10 pr-3 py-2.5 border border-border-primary bg-container rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                  type="text"
+                  placeholder="Enter admin username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block mb-2 text-sm font-medium text-text-secondary">
+                Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <LockKeyhole className="h-5 w-5 text-text-tertiary" />
+                </div>
+                <input
+                  className="block w-full pl-10 pr-3 py-2.5 border border-border-primary bg-container rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                  type="password"
+                  placeholder="Enter admin password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            
+            <button
+              className={`w-full flex justify-center items-center ${
+                isLoading ? "bg-primary/70" : "bg-primary hover:bg-primary-dark"
+              } text-text-inverted py-2.5 rounded-md transition duration-200 mb-4`}
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Signing in...
+                </>
+              ) : (
+                "Sign In as Admin"
+              )}
+            </button>
+          </form>
+        )}
 
-        <div className="text-center">
-          <Link href="/signup" className="text-primary hover:text-primary-dark hover:underline">
-            Don't have an account? Sign up
+        <div className="text-center text-sm pt-4 border-t border-border-primary">
+          <Link 
+            href="/auth/forgot-password" 
+            className="text-primary hover:text-primary-dark hover:underline"
+          >
+            Forgot password?
           </Link>
         </div>
       </div>
     </div>
   );
 };
-
 
 export default Signin;
