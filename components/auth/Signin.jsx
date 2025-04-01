@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LockKeyhole, User as UserIcon, ChevronDown, ChevronUp } from "lucide-react";
 import Image from "next/image";
 import { FaLine } from "react-icons/fa";
+import liff from '@line/liff';
 
 const Signin = () => {
   const { data: session } = useSession();
@@ -17,10 +18,39 @@ const Signin = () => {
   const [password, setPassword] = useState("");
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [liffInitialized, setLiffInitialized] = useState(false);
 
   const router = useRouter();
   const params = useSearchParams();
   const callBackUrl = params.get("callbackUrl");
+
+  // Initialize LIFF
+  useEffect(() => {
+    const initializeLiff = async () => {
+      try {
+        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+        setLiffInitialized(true);
+        
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          // Automatically sign in through NextAuth after LIFF login
+          await signIn("line", { 
+            callbackUrl: callBackUrl || "/",
+            userId: profile.userId,
+            displayName: profile.displayName,
+            pictureUrl: profile.pictureUrl
+          });
+        }
+      } catch (error) {
+        console.error("LIFF initialization error:", error);
+        toast.error("Failed to initialize LINE login");
+      }
+    };
+
+    if (!liffInitialized) {
+      initializeLiff();
+    }
+  }, [liffInitialized, callBackUrl]);
 
   useEffect(() => {
     if (session) {
@@ -60,7 +90,26 @@ const Signin = () => {
   };
 
   const handleLineSignIn = async () => {
-    await signIn("line", { callbackUrl: callBackUrl || "/" });
+    if (!liffInitialized) {
+      toast.info("Initializing LINE login...");
+      return;
+    }
+
+    if (liff.isLoggedIn()) {
+      try {
+        const profile = await liff.getProfile();
+        await signIn("line", { 
+          callbackUrl: callBackUrl || "/",
+          userId: profile.userId,
+          displayName: profile.displayName,
+          pictureUrl: profile.pictureUrl
+        });
+      } catch (error) {
+        toast.error("Failed to get LINE profile");
+      }
+    } else {
+      liff.login();
+    }
   };
 
   return (
@@ -88,9 +137,22 @@ const Signin = () => {
           <button
             onClick={handleLineSignIn}
             className="flex items-center justify-center w-full bg-[#06C755] text-white py-3 rounded-md hover:bg-[#05b54d] transition duration-200"
+            disabled={!liffInitialized}
           >
-            <FaLine className="w-5 h-5 mr-2" />
-            Sign in with LINE
+            {!liffInitialized ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Initializing...
+              </>
+            ) : (
+              <>
+                <FaLine className="w-5 h-5 mr-2" />
+                Sign in with LINE
+              </>
+            )}
           </button>
         </div>
 

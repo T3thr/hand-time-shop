@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import LineProvider from "next-auth/providers/line"; // Requires next-auth v4.24+ or custom provider
+import LineProvider from "next-auth/providers/line";
+import liff from '@line/liff';
 import User from "@/backend/models/User";
 import LoginActivity from "@/backend/models/LoginActivity";
 import mongodbConnect from "@/backend/lib/mongodb";
@@ -49,34 +50,33 @@ export const authOptions = {
       },
     }),
 
-    // LINE Provider (OAuth 2.1, 2025 compatible)
-    LineProvider({
+    // LINE Provider (OAuth 2.1, 2025 compatible) with LIFF integration
+    {
+      id: 'line',
+      name: 'LINE',
+      type: 'oauth',
+      version: '2.1',
       clientId: process.env.LINE_CHANNEL_ID,
       clientSecret: process.env.LINE_CHANNEL_SECRET,
       authorization: {
         url: "https://access.line.me/oauth2/v2.1/authorize",
         params: {
-          scope: "profile openid email", // Request profile, OpenID, and email
-          prompt: "consent",
+          scope: "profile openid",
           response_type: "code",
+          nonce: "unique_nonce",
         },
       },
-      token: {
-        url: "https://api.line.me/oauth2/v2.1/token",
-        params: {
-          grant_type: "authorization_code",
-        },
-      },
+      token: "https://api.line.me/oauth2/v2.1/token",
       userinfo: "https://api.line.me/v2/profile",
-      profile(profile) {
+      async profile(profile) {
         return {
-          id: profile.sub, // LINE user ID
-          name: profile.name,
-          email: profile.email || null, // Optional
-          image: profile.picture,
+          id: profile.userId,
+          name: profile.displayName,
+          email: null, // LINE doesn't provide email by default
+          image: profile.pictureUrl,
         };
       },
-    }),
+    }
   ],
   callbacks: {
     async signIn({ user, account }) {
@@ -131,11 +131,34 @@ export const authOptions = {
     },
   },
   pages: {
-    signIn: "https://liff.line.me/2007182579-GE51lXKX",
+    signIn: process.env.NEXT_PUBLIC_LIFF_URL || "https://liff.line.me/2007182579-GE51lXKX",
     error: "/auth/error",
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
+  session: {
+    strategy: 'jwt',
+  },
+  events: {
+    async signIn({ user, account, profile }) {
+      // Additional LIFF login handling if needed
+    },
+  },
+  // LIFF specific initialization
+  adapter: {
+    async login() {
+      await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+      if (!liff.isLoggedIn()) {
+        liff.login();
+      }
+    },
+    async logout() {
+      await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+      if (liff.isLoggedIn()) {
+        liff.logout();
+      }
+    }
+  }
 };
 
 export default NextAuth(authOptions);
