@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useCallback, useContext, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import Link from "next/link";
 import { useSession, signOut, signIn } from "next-auth/react";
 import { useCart } from "@/context/CartContext";
@@ -14,7 +14,8 @@ import Search from './Search';
 import { toast } from "react-toastify";
 import AuthContext from "@/context/AuthContext";
 import SigninModal from "@/components/auth/SigninModal";
-import { FaLine } from 'react-icons/fa'; 
+import { FaLine } from 'react-icons/fa';
+import liff from '@line/liff';
 
 const sidebarLinks = [
   { href: "/", icon: Home, label: "Home" },
@@ -29,13 +30,30 @@ export default function NavBar() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSigninModalOpen, setIsSigninModalOpen] = useState(false);
   const [isLineLoading, setIsLineLoading] = useState(false);
+  const [profile, setProfile] = useState(null);
   const { data: session } = useSession();
   const { cartItems, getCartSummary } = useCart();
   const { totalItems, subtotal } = getCartSummary();
   const { adminSignIn } = useContext(AuthContext);
 
-  // Memoize cart summary to prevent unnecessary recalculations
-  const cartSummary = useMemo(() => getCartSummary(), [getCartSummary, cartItems]);
+  // Initialize LIFF
+  useEffect(() => {
+    const initializeLiff = async () => {
+      try {
+        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+        if (liff.isLoggedIn()) {
+          const profileData = await liff.getProfile();
+          setProfile(profileData);
+          localStorage.setItem('lineUserId', profileData.userId);
+        }
+      } catch (error) {
+        console.error("LIFF initialization error:", error);
+        toast.error("Failed to initialize LINE login");
+      }
+    };
+
+    initializeLiff();
+  }, []);
 
   const handleScroll = useCallback(() => {
     setIsScrolled(window.scrollY > 20);
@@ -49,9 +67,21 @@ export default function NavBar() {
   const handleLineSignIn = useCallback(async () => {
     try {
       setIsLineLoading(true);
-      await signIn("line", { callbackUrl: "/" });
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      const profile = await liff.getProfile();
+      await signIn("line", {
+        callbackUrl: "/",
+        userId: profile.userId,
+        displayName: profile.displayName,
+        pictureUrl: profile.pictureUrl
+      });
     } catch (error) {
       toast.error("Failed to initiate LINE login");
+    } finally {
       setIsLineLoading(false);
     }
   }, []);
@@ -65,6 +95,12 @@ export default function NavBar() {
           className="h-10 w-10 rounded-full object-cover"
           loading="lazy"
         />
+      );
+    } else if (session?.user?.role === 'admin') {
+      return (
+        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+          <Shield className="h-5 w-5 text-blue-600" />
+        </div>
       );
     }
     return (
@@ -89,14 +125,14 @@ export default function NavBar() {
 
   return (
     <>
-      <nav className={`fixed w-full z-40 transition-normal ${
+      <nav className={`fixed w-full z-40 transition-all duration-300 ${
         isScrolled ? "bg-white/95 dark:bg-gray-900/95 shadow-md backdrop-blur-sm" : "bg-transparent"
       }`}>
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-16">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-fast"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               aria-label="Open menu"
             >
               <Menu className="h-6 w-6" />
@@ -112,10 +148,10 @@ export default function NavBar() {
 
             <button 
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-fast group"
+              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
               aria-label="Cart"
             >
-              <ShoppingCart className="h-6 w-6 group-hover:text-primary transition-fast" />
+              <ShoppingCart className="h-6 w-6 group-hover:text-primary transition-colors" />
               {cartItems.length > 0 && (
                 <>
                   <div className="absolute -top-2 -right-2">
@@ -123,7 +159,7 @@ export default function NavBar() {
                       {Math.min(totalItems, 99)}{totalItems > 99 ? '+' : ''}
                     </span>
                   </div>
-                  <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-fast pointer-events-none">
+                  <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-colors pointer-events-none">
                     <div className="p-4">
                       <div className="text-sm font-medium">Cart Summary</div>
                       <div className="mt-2 text-xs text-gray-500">
@@ -174,7 +210,7 @@ export default function NavBar() {
                     </div>
                     <button 
                       onClick={() => setIsSidebarOpen(false)}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-fast"
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
                       aria-label="Close menu"
                     >
                       <X className="h-5 w-5" />
@@ -188,7 +224,7 @@ export default function NavBar() {
                       <Link
                         key={href}
                         href={href}
-                        className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-fast group"
+                        className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
                       >
                         <Icon className="h-5 w-5 text-gray-500 group-hover:text-primary" />
                         <span className="flex-1">{label}</span>
@@ -202,7 +238,7 @@ export default function NavBar() {
                   {session ? (
                     <button
                       onClick={() => signOut()}
-                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-fast"
+                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                     >
                       <LogOut className="h-5 w-5" />
                       <span>Sign Out</span>
@@ -212,7 +248,7 @@ export default function NavBar() {
                       <button
                         onClick={handleLineSignIn}
                         disabled={isLineLoading}
-                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-[#06C755] text-white hover:bg-[#05b54d] transition-fast"
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-[#06C755] text-white hover:bg-[#05b54d] transition-colors"
                       >
                         {isLineLoading ? (
                           <>
@@ -221,14 +257,14 @@ export default function NavBar() {
                           </>
                         ) : (
                           <>
-                          <FaLine className="h-5 w-5" /> {/* Line icon */}
-                          <span>Sign in with LINE</span>
+                            <FaLine className="h-5 w-5" />
+                            <span>Sign in with LINE</span>
                           </>
                         )}
                       </button>
                       <button
                         onClick={() => setIsSigninModalOpen(true)}
-                        className="w-full btn-primary flex items-center justify-center space-x-2 px-4 py-2 rounded-lg"
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark transition-colors"
                       >
                         <User className="h-5 w-5" />
                         <span>Admin Sign In</span>
