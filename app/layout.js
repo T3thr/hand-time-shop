@@ -1,7 +1,7 @@
 import { Inter } from 'next/font/google';
 import "./globals.css";
 import mongodbConnect from '@/backend/lib/mongodb';
-import NavBar from '@/components/layouts/NavBar';
+
 import { ThemeProvider } from '@/context/Theme';
 import ChangeTheme from '@/components/layouts/ChangeTheme';
 import { cookies } from 'next/headers';
@@ -27,7 +27,7 @@ export default async function RootLayout({ children }) {
       <body className={inter.className}>
         <ThemeProvider initialTheme={initialTheme}>
           <GlobalProvider>
-            <NavBar />
+            
             {children}
             <ChangeTheme />
           </GlobalProvider>

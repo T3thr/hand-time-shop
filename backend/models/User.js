@@ -2,80 +2,296 @@ import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 
 const CartItemSchema = new Schema({
-  productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
-  name: { type: String, required: true },
-  price: { type: Number, required: true },
-  quantity: { type: Number, required: true, min: 1, default: 1 },
-  image: { type: String, required: true },
-  addedAt: { type: Date, default: Date.now },
-});
+  productId: { 
+    type: Schema.Types.ObjectId, 
+    ref: "Product", 
+    required: true 
+  },
+  name: { 
+    type: String, 
+    required: true,
+    trim: true,
+    maxlength: 100
+  },
+  price: { 
+    type: Number, 
+    required: true,
+    min: 0
+  },
+  quantity: { 
+    type: Number, 
+    required: true, 
+    min: 1, 
+    max: 99,
+    default: 1 
+  },
+  image: { 
+    type: String, 
+    required: true,
+    validate: {
+      validator: function(v) {
+        return /^(https?:\/\/).+\.(jpg|jpeg|png|webp|gif)$/.test(v);
+      },
+      message: props => `${props.value} is not a valid image URL!`
+    }
+  },
+  addedAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  variant: {
+    color: String,
+    size: String,
+    sku: String
+  }
+}, { _id: false });
 
-const LikedProductSchema = new Schema({
-  productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
-  addedAt: { type: Date, default: Date.now },
-});
+const WishlistItemSchema = new Schema({
+  productId: { 
+    type: Schema.Types.ObjectId, 
+    ref: "Product", 
+    required: true 
+  },
+  addedAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  notes: {
+    type: String,
+    maxlength: 200
+  }
+}, { _id: false });
 
-const PurchaseHistorySchema = new Schema({
-  orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true },
-  products: [{
-    productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
-    name: { type: String, required: true },
-    price: { type: Number, required: true },
-    quantity: { type: Number, required: true },
-  }],
-  totalAmount: { type: Number, required: true },
-  purchasedAt: { type: Date, default: Date.now },
+const OrderItemSchema = new Schema({
+  productId: { 
+    type: Schema.Types.ObjectId, 
+    ref: "Product", 
+    required: true 
+  },
+  name: { 
+    type: String, 
+    required: true,
+    trim: true
+  },
+  price: { 
+    type: Number, 
+    required: true,
+    min: 0
+  },
+  quantity: { 
+    type: Number, 
+    required: true,
+    min: 1
+  },
+  image: String,
+  variant: {
+    color: String,
+    size: String
+  }
+}, { _id: false });
+
+const OrderSchema = new Schema({
+  orderId: { 
+    type: String, 
+    required: true,
+    unique: true
+  },
+  items: [OrderItemSchema],
+  totalAmount: { 
+    type: Number, 
+    required: true,
+    min: 0
+  },
+  shippingAddress: {
+    type: Schema.Types.ObjectId,
+    ref: 'Address'
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['credit_card', 'paypal', 'bank_transfer', 'cash_on_delivery'],
+    required: true
+  },
   status: { 
     type: String, 
-    enum: ["pending", "completed", "cancelled"], 
+    enum: ["pending", "processing", "shipped", "delivered", "cancelled", "refunded"], 
     default: "pending" 
   },
-});
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
+  }
+}, { _id: false });
 
 const AddressSchema = new Schema({
-  street: { type: String, required: true },
-  city: { type: String, required: true },
-  state: { type: String },
-  postalCode: { type: String, required: true },
-  country: { type: String, required: true },
-  isDefault: { type: Boolean, default: false },
-});
+  recipientName: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 100
+  },
+  street: { 
+    type: String, 
+    required: true,
+    trim: true,
+    maxlength: 200
+  },
+  city: { 
+    type: String, 
+    required: true,
+    trim: true,
+    maxlength: 100
+  },
+  state: { 
+    type: String,
+    trim: true,
+    maxlength: 100
+  },
+  postalCode: { 
+    type: String, 
+    required: true,
+    trim: true,
+    maxlength: 20
+  },
+  country: { 
+    type: String, 
+    required: true,
+    trim: true,
+    maxlength: 100
+  },
+  phone: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        return /^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\./0-9]*$/.test(v);
+      },
+      message: props => `${props.value} is not a valid phone number!`
+    }
+  },
+  isDefault: { 
+    type: Boolean, 
+    default: false 
+  },
+  type: {
+    type: String,
+    enum: ['home', 'work', 'other'],
+    default: 'home'
+  }
+}, { _id: true });
 
 const UserSchema = new Schema({
-  lineId: { type: String, unique: true, sparse: true }, // For LINE Login
-  username: { type: String, unique: true, sparse: true },
-  email: { type: String, unique: true, sparse: true }, // Optional for admin
-  password: { type: String, select: false }, // For admin only
-  name: { type: String, required: true },
+  lineId: { 
+    type: String, 
+    unique: true, 
+    sparse: true 
+  },
+  username: { 
+    type: String, 
+    unique: true, 
+    sparse: true,
+    trim: true,
+    minlength: 3,
+    maxlength: 30
+  },
+  email: { 
+    type: String, 
+    unique: true, 
+    sparse: true,
+    trim: true,
+    lowercase: true,
+    validate: {
+      validator: function(v) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      },
+      message: props => `${props.value} is not a valid email!`
+    }
+  },
+  password: { 
+    type: String, 
+    select: false,
+    minlength: 8
+  },
+  name: { 
+    type: String, 
+    required: true,
+    trim: true,
+    maxlength: 100
+  },
   role: { 
     type: String, 
-    enum: ["user", "admin"], 
+    enum: ["user", "admin", "moderator"], 
     default: "user" 
   },
-  avatar: { type: String }, // URL from LINE or custom
+  avatar: { 
+    type: String,
+    validate: {
+      validator: function(v) {
+        return /^(https?:\/\/).+\.(jpg|jpeg|png|webp|gif)$/.test(v);
+      },
+      message: props => `${props.value} is not a valid image URL!`
+    }
+  },
   cart: [CartItemSchema],
-  likedProducts: [LikedProductSchema],
-  purchaseHistory: [PurchaseHistorySchema],
+  wishlist: [WishlistItemSchema],
+  orders: [OrderSchema],
   addresses: [AddressSchema],
-  isVerified: { type: Boolean, default: false }, // For admin or future email verification
-  lastLogin: { type: Date },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
+  isVerified: { 
+    type: Boolean, 
+    default: false 
+  },
+  lastLogin: { 
+    type: Date 
+  },
+  preferences: {
+    theme: {
+      type: String,
+      enum: ['light', 'dark', 'system'],
+      default: 'system'
+    },
+    notifications: {
+      email: { type: Boolean, default: true },
+      sms: { type: Boolean, default: false }
+    }
+  },
+  stats: {
+    totalOrders: { type: Number, default: 0 },
+    totalSpent: { type: Number, default: 0 },
+    lastOrderDate: Date
+  }
+}, {
+  timestamps: true,
+  toJSON: {
+    virtuals: true,
+    transform: function(doc, ret) {
+      delete ret.password;
+      delete ret.__v;
+      return ret;
+    }
+  }
 });
 
-// Pre-save hook to hash password for admin users
 UserSchema.pre("save", async function (next) {
   if (this.isModified("password") && this.password) {
     this.password = await bcrypt.hash(this.password, 10);
   }
-  this.updatedAt = Date.now();
   next();
 });
 
-// Method to compare password for admin login
 UserSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
+
+UserSchema.virtual('cartCount').get(function() {
+  return this.cart.reduce((sum, item) => sum + item.quantity, 0);
+});
+
+UserSchema.virtual('wishlistCount').get(function() {
+  return this.wishlist.length;
+});
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
 export default User;

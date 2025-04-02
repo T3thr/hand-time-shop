@@ -2,7 +2,7 @@ import React from 'react';
 import { options } from '@/app/api/auth/[...nextauth]/options'
 import { getServerSession } from 'next-auth/next'
 import NavBar from './NavBar';
-import Menu from './Menu'
+import Menu from './SideBar'
 import { GlobalProvider } from "@/app/GlobalProvider";
 
 export default async function Header() {

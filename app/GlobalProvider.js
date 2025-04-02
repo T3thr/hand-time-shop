@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { CartProvider } from "@/context/CartContext";
+import NavBarWrapper from '@/components/layouts/NavBarWrapper'; 
 
 export function GlobalProvider({ children }) {
   return (
@@ -12,6 +13,7 @@ export function GlobalProvider({ children }) {
           <SessionProvider>
               <AuthProvider>
                 <CartProvider>
+                  <NavBarWrapper /> {/* Use the wrapper instead of NavBar directly */}
                   <ToastContainer position="bottom-right" />
                   {children}
                 </CartProvider>

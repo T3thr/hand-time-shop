@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useSession, signOut, signIn } from "next-auth/react";
 import { useCart } from "@/context/CartContext";
 import { 
-  Menu, ShoppingCart, User, X, Home,
-  Tag, Sparkles, LogOut, ChevronRight,
-  Settings, Shield, Copy, Eye, EyeOff
+  Menu, ShoppingCart, User, X,
+  LogOut, Shield, Copy, Eye, EyeOff
 } from "lucide-react";
 import Cart from './Cart';
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,13 +16,7 @@ import SigninModal from "@/components/auth/SigninModal";
 import SignoutModal from "@/components/auth/SignoutModal";
 import { FaLine } from 'react-icons/fa';
 import liff from '@line/liff';
-
-const sidebarLinks = [
-  { href: "/", icon: Home, label: "Home" },
-  { href: "/categories", icon: Tag, label: "Categories" },
-  { href: "/new-arrivals", icon: Sparkles, label: "New Arrivals" },
-  { href: "/account", icon: Settings, label: "Account Settings" },
-];
+import SideBar from './SideBar';
 
 export default function NavBar() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -39,23 +32,24 @@ export default function NavBar() {
   const { totalItems, subtotal } = getCartSummary();
   const { adminSignIn } = useContext(AuthContext);
 
-  // Initialize LIFF
   useEffect(() => {
     const initializeLiff = async () => {
       try {
+        if (!process.env.NEXT_PUBLIC_LIFF_ID) return;
+        
         await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
         if (liff.isLoggedIn()) {
           const profileData = await liff.getProfile();
           setProfile(profileData);
-          localStorage.setItem('lineUserId', profileData.userId);
         }
       } catch (error) {
         console.error("LIFF initialization error:", error);
-        toast.error("Failed to initialize LINE login");
       }
     };
 
-    initializeLiff();
+    if (typeof window !== 'undefined') {
+      initializeLiff();
+    }
   }, []);
 
   const handleScroll = useCallback(() => {
@@ -71,7 +65,16 @@ export default function NavBar() {
     try {
       setIsLineLoading(true);
       if (!liff.isLoggedIn()) {
-        liff.login();
+        await liff.login();
+        const profile = await liff.getProfile();
+        setProfile(profile);
+        
+        await signIn("line", {
+          callbackUrl: "/",
+          userId: profile.userId,
+          displayName: profile.displayName,
+          pictureUrl: profile.pictureUrl
+        });
         return;
       }
 
@@ -95,24 +98,16 @@ export default function NavBar() {
 
   const handleLogout = useCallback(async () => {
     try {
-      // Sign out from NextAuth if session exists
       if (session) {
         await signOut({ callbackUrl: '/' });
       }
       
-      // Sign out from LINE LIFF if logged in
-      if (liff.isLoggedIn()) {
-        liff.logout();
+      if (typeof liff !== 'undefined' && liff.isLoggedIn()) {
+        await liff.logout();
       }
       
-      // Clear local storage
-      localStorage.removeItem('lineUserId');
-      
-      // Close the modal
+      setProfile(null);
       setIsSignoutModalOpen(false);
-      
-      // Reload the page to reset state
-      window.location.reload();
     } catch (error) {
       toast.error("Failed to sign out");
       console.error("Logout error:", error);
@@ -127,7 +122,6 @@ export default function NavBar() {
   }, [profile]);
 
   const getUserAvatar = useCallback(() => {
-    // Show admin avatar first if admin session exists
     if (session?.user?.role === 'admin') {
       return (
         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -136,7 +130,6 @@ export default function NavBar() {
       );
     }
     
-    // Show LINE profile picture if available
     if (profile?.pictureUrl) {
       return (
         <img 
@@ -148,7 +141,6 @@ export default function NavBar() {
       );
     }
     
-    // Show NextAuth user image if available
     if (session?.user?.image) {
       return (
         <img 
@@ -160,7 +152,6 @@ export default function NavBar() {
       );
     }
     
-    // Default avatar
     return (
       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
         <User className="h-6 w-6 text-primary" />
@@ -187,7 +178,7 @@ export default function NavBar() {
     } else if (profile?.userId) {
       return (
         <div className="flex flex-col space-y-2">
-          <span className="truncate">LINE User</span>
+          <span className="truncate">{profile?.displayName || 'LINE User'}</span>
           <div className="flex items-center space-x-1">
             <button 
               onClick={() => setShowUserId(!showUserId)}
@@ -197,7 +188,7 @@ export default function NavBar() {
               {showUserId ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
             {showUserId && (
-              <div className="flex items-center space-x-1 max-w-full overflow-hidden">
+              <div className="flex items-center space-x-1 max-w-12 overflow-hidden">
                 <span className="text-xs bg-container px-2 py-1 rounded truncate">
                   {profile.userId}
                 </span>
@@ -246,7 +237,7 @@ export default function NavBar() {
               aria-label="Cart"
             >
               <ShoppingCart className="h-6 w-6 text-foreground group-hover:text-primary transition-colors" />
-              {cartItems.length > 0 && (
+              {totalItems > 0 && (
                 <>
                   <div className="absolute -top-2 -right-2">
                     <span className="flex h-5 w-5 items-center justify-center bg-primary text-text-inverted text-xs font-bold rounded-full">
@@ -313,19 +304,7 @@ export default function NavBar() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto py-4">
-                  <div className="space-y-1 px-3">
-                    {sidebarLinks.map(({ href, icon: Icon, label }) => (
-                      <Link
-                        key={href}
-                        href={href}
-                        className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-container transition-colors group"
-                      >
-                        <Icon className="h-5 w-5 text-text-secondary group-hover:text-primary" />
-                        <span className="flex-1 text-foreground">{label}</span>
-                        <ChevronRight className="h-4 w-4 text-text-tertiary group-hover:text-primary" />
-                      </Link>
-                    ))}
-                  </div>
+                  <SideBar onLinkClick={() => setIsSidebarOpen(false)} />
                 </div>
 
                 <div className="p-4 border-t border-border-primary">
