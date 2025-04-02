@@ -204,7 +204,7 @@ export default function Product() {
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
       {/* Hero Section */}
-      <section className="relative h-[80vh] lg:h-[80vh] bg-gradient-to-r from-background-secondary to-primary-light/20 dark:from-background-secondary dark:to-primary-dark/30 overflow-hidden">
+      <section className="relative h-[80vh] lg:h-[80vh] bg-gradient-to-r from-background-secondary to-primary-light dark:from-background-secondary dark:to-primary-dark">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0 bg-[url('/images/pattern.svg')] bg-repeat bg-center opacity-20"></div>
         </div>
