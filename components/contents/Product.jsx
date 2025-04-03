@@ -101,7 +101,6 @@ export default function Product() {
       return;
     }
 
-    // Ensure session is valid for both LINE and admin users
     if (!session?.user?.id) {
       toast.error('Session error. Please sign in again.');
       router.push('/signin');
@@ -165,7 +164,6 @@ export default function Product() {
 
     if (status === 'unauthenticated') {
       toast.error('Please sign in to manage wishlist');
-      router.push('/signin');
       return;
     }
 

@@ -15,7 +15,7 @@ export const options = {
         username: { label: "Username", type: "text", placeholder: "Admin" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         await mongodbConnect();
 
         if (!credentials?.username || !credentials?.password) {
@@ -64,17 +64,45 @@ export const options = {
           throw new Error("LINE user ID is required");
         }
 
-        const user = await User.findOne({ lineId: credentials.userId });
+        let user = await User.findOne({ lineId: credentials.userId });
 
         if (!user) {
-          throw new Error("User not found. Please sign in via LINE first.");
+          // New LINE user - create with full schema
+          user = await User.create({
+            lineId: credentials.userId,
+            name: credentials.displayName || `LINE User ${credentials.userId.slice(0, 4)}`,
+            avatar: credentials.pictureUrl || null,
+            role: "user",
+            email: null,
+            username: null,
+            password: null,
+            cart: [],
+            wishlist: [],
+            orders: [],
+            addresses: [],
+            isVerified: true,
+            lastLogin: new Date(),
+            preferences: {
+              theme: "system",
+              notifications: { email: true, sms: false },
+            },
+            stats: {
+              totalOrders: 0,
+              totalSpent: 0,
+              lastOrderDate: null,
+            },
+          });
+        } else {
+          // Update existing user
+          user.lastLogin = new Date();
+          await user.save();
         }
 
         return {
           id: user._id.toString(),
           name: user.name,
           email: user.email || null,
-          image: user.avatar || null,
+          image: user.avatar,
           role: user.role,
           lineId: user.lineId,
         };

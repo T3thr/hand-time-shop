@@ -34,10 +34,6 @@ const Cart = ({ isOpen, onClose }) => {
       window.location.href = '/signin';
       return;
     }
-    if (!session?.user?.id) {
-      window.location.href = '/signin';
-      return;
-    }
     setIsLineCheckoutModalOpen(true);
   };
 
@@ -147,7 +143,9 @@ const CartContent = ({
             {cartItems.map((item) => (
               <div
                 key={item.productId}
-                className="flex space-x-4 p-4 bg-background-secondary rounded-lg transition-colors duration-200"
+                className="flex space-x-4 p-4 bg-background-secondary 
+   
+rounded-lg transition-colors duration-200"
               >
                 <div className="relative h-20 w-20 flex-shrink-0">
                   <Image

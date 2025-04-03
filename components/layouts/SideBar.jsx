@@ -2,7 +2,7 @@
 'use client';
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useSession, signOut, signIn } from "next-auth/react";
 import { 
   Menu, User, X, Home, Tag, Sparkles, LogOut, ChevronRight,
   Settings, Shield, Copy, Eye, EyeOff, Heart
@@ -34,7 +34,7 @@ export default function SideBar({ isOpen, onClose }) {
   const [isLineLoading, setIsLineLoading] = useState(false);
   const [profile, setProfile] = useState(null);
   const [showUserId, setShowUserId] = useState(false);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { adminSignIn } = useContext(AuthContext);
 
   useEffect(() => {
@@ -69,16 +69,16 @@ export default function SideBar({ isOpen, onClose }) {
       
       if (!liff.isLoggedIn()) {
         await liff.login();
-        return; // After login, this function will re-run
+        return;
       }
 
       const profile = await liff.getProfile();
       setProfile(profile);
 
-      // Call the custom LINE login API route
-      const response = await fetch("/api/auth/line-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      // Register LINE user via API
+      const registerResponse = await fetch('/api/line/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: profile.userId,
           displayName: profile.displayName,
@@ -86,15 +86,26 @@ export default function SideBar({ isOpen, onClose }) {
         }),
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "LINE login failed");
+      if (!registerResponse.ok) {
+        throw new Error("Failed to register LINE user");
       }
 
-      toast.success("Signed in with LINE successfully!");
+      // Sign in with NextAuth
+      const result = await signIn("line", {
+        redirect: false,
+        userId: profile.userId,
+        displayName: profile.displayName,
+        pictureUrl: profile.pictureUrl,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      toast.success("Signed in with LINE successfully");
     } catch (error) {
       console.error("LINE login error:", error);
-      toast.error(`LINE login failed: ${error.message}`);
+      toast.error("LINE login failed. Please try again.");
     } finally {
       setIsLineLoading(false);
     }
@@ -143,10 +154,10 @@ export default function SideBar({ isOpen, onClose }) {
       );
     }
     
-    if (session?.user?.image || profile?.pictureUrl) {
+    if (profile?.pictureUrl || session?.user?.image) {
       return (
         <img 
-          src={session.user.image || profile.pictureUrl} 
+          src={profile?.pictureUrl || session.user.image} 
           alt="Profile" 
           className="h-10 w-10 rounded-full object-cover"
           loading="lazy"
@@ -177,10 +188,10 @@ export default function SideBar({ isOpen, onClose }) {
   const renderUserInfo = useCallback(() => {
     if (session?.user?.email) {
       return session.user.email;
-    } else if (session?.user?.lineId || profile?.userId) {
+    } else if (profile?.userId || session?.user?.lineId) {
       return (
         <div className="flex flex-col space-y-2">
-          <span className="truncate">{session.user.name || profile?.displayName || 'LINE User'}</span>
+          <span className="truncate">{profile?.displayName || session?.user?.name || 'LINE User'}</span>
           <div className="flex items-center space-x-1">
             <button 
               onClick={() => setShowUserId(!showUserId)}
@@ -192,7 +203,7 @@ export default function SideBar({ isOpen, onClose }) {
             {showUserId && (
               <div className="flex items-center space-x-1 max-w-12 overflow-hidden">
                 <span className="text-xs bg-container px-2 py-1 rounded truncate">
-                  {session.user.lineId || profile?.userId}
+                  {profile?.userId || session?.user?.lineId}
                 </span>
                 <button 
                   onClick={copyUserId}
@@ -274,7 +285,7 @@ export default function SideBar({ isOpen, onClose }) {
                 </div>
 
                 <div className="p-4 border-t border-border-primary">
-                  {session ? (
+                  {session || profile ? (
                     <button
                       onClick={handleLogoutConfirmation}
                       className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-container hover:bg-container/80 transition-colors"
