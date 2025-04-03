@@ -86,67 +86,39 @@ export const AuthProvider = ({ children }) => {
   };
 
   const adminSignIn = async ({ username, password }) => {
-    try {
-      setLoading(true);
-      const res = await nextAuthSignIn("admin-credentials", {
-        redirect: false,
-        username,
-        password,
-      });
-
-      if (res?.error) {
-        const errorMsg =
-          res.error === "CredentialsSignin"
-            ? "Invalid username/email or password"
-            : res.error;
-        toast.error(errorMsg);
-        return { success: false, message: errorMsg };
-      }
-
-      if (res?.ok) {
-        await fetchUser();
-        return { success: true };
-      }
-    } catch (error) {
-      toast.error("Admin signin failed");
-      return { success: false, message: "Admin signin failed" };
-    } finally {
-      setLoading(false);
-    }
+    return loginUser({ username, password }); // Reuse loginUser for admin
   };
 
   const lineSignIn = async ({ userId, displayName, pictureUrl }) => {
     try {
       setLoading(true);
 
-      // Register the LINE user if they don't exist
-      const registerResponse = await axios.post("/api/auth/line/register", {
+      // Register LINE user if not already registered
+      const registerRes = await axios.post("/api/auth/line/register", {
         userId,
         displayName,
         pictureUrl,
       });
 
-      if (registerResponse.status !== 201 && registerResponse.status !== 200) {
-        throw new Error("Failed to register LINE user");
-      }
+      if (registerRes.status === 201 || registerRes.status === 200) {
+        // Sign in with LINE credentials
+        const res = await nextAuthSignIn("line", {
+          redirect: false,
+          userId,
+          displayName,
+          pictureUrl,
+        });
 
-      // Sign in with LINE credentials
-      const res = await nextAuthSignIn("line", {
-        redirect: false,
-        userId,
-        displayName,
-        pictureUrl,
-      });
+        if (res?.error) {
+          toast.error(res.error);
+          return { success: false, message: res.error };
+        }
 
-      if (res?.error) {
-        toast.error(res.error);
-        return { success: false, message: res.error };
-      }
-
-      if (res?.ok) {
-        await fetchUser();
-        toast.success("LINE login successful!");
-        return { success: true };
+        if (res?.ok) {
+          await fetchUser();
+          toast.success("LINE login successful!");
+          return { success: true };
+        }
       }
     } catch (error) {
       toast.error("LINE signin failed");

@@ -4,7 +4,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import User from "@/backend/models/User";
 import mongodbConnect from "@/backend/lib/mongodb";
 import bcrypt from "bcryptjs";
-import liff from "@line/liff";
 
 export const options = {
   providers: [
@@ -16,7 +15,7 @@ export const options = {
         username: { label: "Username", type: "text", placeholder: "Admin" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         await mongodbConnect();
 
         if (!credentials?.username || !credentials?.password) {
@@ -49,7 +48,7 @@ export const options = {
       },
     }),
 
-    // LINE LIFF Provider
+    // LINE Provider with LIFF Integration
     CredentialsProvider({
       id: "line",
       name: "LINE",
@@ -68,9 +67,8 @@ export const options = {
         let user = await User.findOne({ lineId: credentials.userId });
 
         if (!user) {
-          // New LINE user - registration will be handled via API route
-          // Here we just return null to trigger registration flow
-          return null;
+          // New LINE user registration will be handled via API route
+          throw new Error("LINE user not found. Please register first.");
         }
 
         user.lastLogin = new Date();
@@ -94,7 +92,7 @@ export const options = {
         token.role = user.role;
         token.lineId = user.lineId || null;
         token.name = user.name;
-        token.image = user.image || null;
+        token.image = user.image;
       }
       return token;
     },

@@ -1,31 +1,25 @@
 // app/api/auth/line/register/route.js
 import { NextResponse } from "next/server";
-import mongodbConnect from "@/backend/lib/mongodb";
+import dbConnect from "@/backend/lib/mongodb";
 import User from "@/backend/models/User";
 
 export async function POST(request) {
   try {
-    await mongodbConnect();
+    await dbConnect();
     const { userId, displayName, pictureUrl } = await request.json();
 
     if (!userId) {
-      return NextResponse.json(
-        { message: "LINE user ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "LINE user ID is required" }, { status: 400 });
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ lineId: userId });
-    if (existingUser) {
-      return NextResponse.json(
-        { message: "LINE user already registered" },
-        { status: 409 }
-      );
+    let user = await User.findOne({ lineId: userId });
+    if (user) {
+      return NextResponse.json({ message: "User already registered", user }, { status: 200 });
     }
 
     // Create new LINE user
-    const user = await User.create({
+    user = await User.create({
       lineId: userId,
       name: displayName || `LINE User ${userId.slice(0, 4)}`,
       avatar: pictureUrl || null,
@@ -48,18 +42,15 @@ export async function POST(request) {
         totalSpent: 0,
         lastOrderDate: null,
       },
-      createdAt: new Date(), // Using 2025 date as per request
+      createdAt: new Date(), 
       updatedAt: new Date(),
     });
 
-    return NextResponse.json(
-      { message: "LINE user registered successfully", userId: user._id },
-      { status: 201 }
-    );
+    return NextResponse.json({ message: "LINE user registered successfully", user }, { status: 201 });
   } catch (error) {
     console.error("LINE registration error:", error);
     return NextResponse.json(
-      { message: "Failed to register LINE user", error: error.message },
+      { error: "Failed to register LINE user", details: error.message },
       { status: 500 }
     );
   }

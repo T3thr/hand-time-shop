@@ -1,32 +1,32 @@
 // components/contents/Product.jsx
-"use client";
-import React, { useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { toast } from "react-toastify";
-import { useCart } from "@/context/CartContext";
-import ImageSlider from "@/components/contents/ImageSlider";
-import LearnMoreModal from "@/components/contents/LearnMoreModal";
-import { Heart, ShoppingBag, Filter, Search, X, ChevronRight } from "lucide-react";
-import { useProducts } from "@/backend/lib/productAction";
-import axios from "axios";
-import { motion } from "framer-motion";
+'use client';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-toastify';
+import { useCart } from '@/context/CartContext';
+import AuthContext from '@/context/AuthContext';
+import ImageSlider from '@/components/contents/ImageSlider';
+import LearnMoreModal from '@/components/contents/LearnMoreModal';
+import { Heart, ShoppingBag, Filter, Search, X, ChevronRight } from 'lucide-react';
+import { useProducts } from '@/backend/lib/productAction';
+import axios from 'axios';
+import { motion } from 'framer-motion';
 
 export default function Product() {
   const featuredProductsRef = useRef(null);
   const [isLearnMoreModalOpen, setIsLearnMoreModalOpen] = useState(false);
   const [filters, setFilters] = useState({
-    category: "",
-    priceRange: "",
-    sortBy: "",
-    searchQuery: "",
+    category: '',
+    priceRange: '',
+    sortBy: '',
+    searchQuery: '',
   });
   const [categories, setCategories] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { data: session, status } = useSession();
+  const { user } = useContext(AuthContext);
   const { addToCart, cartItems, getCartSummary } = useCart();
   const { products, isLoading: productsLoading, isError } = useProducts();
   const router = useRouter();
@@ -34,8 +34,8 @@ export default function Product() {
   const scrollToFeaturedProducts = () => {
     if (featuredProductsRef.current) {
       featuredProductsRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
+        behavior: 'smooth',
+        block: 'start',
       });
     }
   };
@@ -43,10 +43,10 @@ export default function Product() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await axios.get("/api/category");
+        const response = await axios.get('/api/category');
         setCategories(response.data);
       } catch (error) {
-        toast.error("Failed to load categories");
+        toast.error('Failed to load categories');
       }
     };
     fetchCategories();
@@ -64,10 +64,9 @@ export default function Product() {
     let filtered = [...products];
 
     if (filters.searchQuery) {
-      filtered = filtered.filter(
-        (product) =>
-          product.name.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
-          product.description.toLowerCase().includes(filters.searchQuery.toLowerCase())
+      filtered = filtered.filter((product) =>
+        product.name.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+        product.description.toLowerCase().includes(filters.searchQuery.toLowerCase())
       );
     }
 
@@ -76,16 +75,16 @@ export default function Product() {
     }
 
     if (filters.priceRange) {
-      const [min, max] = filters.priceRange.split("-").map(Number);
+      const [min, max] = filters.priceRange.split('-').map(Number);
       filtered = filtered.filter((p) => p.price >= min && p.price <= max);
     }
 
     if (filters.sortBy) {
       filtered.sort((a, b) => {
-        if (filters.sortBy === "price-asc") return a.price - b.price;
-        if (filters.sortBy === "price-desc") return b.price - a.price;
-        if (filters.sortBy === "name") return a.name.localeCompare(b.name);
-        if (filters.sortBy === "rating") return b.averageRating - a.averageRating;
+        if (filters.sortBy === 'price-asc') return a.price - b.price;
+        if (filters.sortBy === 'price-desc') return b.price - a.price;
+        if (filters.sortBy === 'name') return a.name.localeCompare(b.name);
+        if (filters.sortBy === 'rating') return b.averageRating - a.averageRating;
         return 0;
       });
     }
@@ -96,15 +95,15 @@ export default function Product() {
   const handleAddToCart = async (product, e) => {
     e.stopPropagation();
 
-    if (status === "unauthenticated") {
-      toast.error("Please sign in to add items to cart");
-      router.push("/signin");
+    if (!user) {
+      toast.error('Please sign in to add items to cart');
+      router.push('/signin');
       return;
     }
 
-    if (!session?.user?.id) {
-      toast.error("Session error. Please sign in again.");
-      router.push("/signin");
+    if (!user.id) {
+      toast.error('Session error. Please sign in again.');
+      router.push('/signin');
       return;
     }
 
@@ -114,8 +113,8 @@ export default function Product() {
         name: product.name,
         price: product.price,
         description: product.description,
-        image: product.images[0]?.url || "/images/placeholder.jpg",
-        category: product.categories[0] || "",
+        image: product.images[0]?.url || '/images/placeholder.jpg',
+        category: product.categories[0] || '',
       };
 
       const success = await addToCart(cartItem);
@@ -127,7 +126,7 @@ export default function Product() {
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 relative rounded overflow-hidden">
                 <Image
-                  src={product.images[0]?.url || "/images/placeholder.jpg"}
+                  src={product.images[0]?.url || '/images/placeholder.jpg'}
                   alt={product.name}
                   fill
                   className="object-cover"
@@ -145,7 +144,7 @@ export default function Product() {
         );
       }
     } catch (error) {
-      toast.error("Failed to add to cart. Please try again.");
+      toast.error('Failed to add to cart. Please try again.');
     }
   };
 
@@ -162,35 +161,35 @@ export default function Product() {
   const handleWishlist = async (productId, e) => {
     e.stopPropagation();
 
-    if (status === "unauthenticated") {
-      toast.error("Please sign in to manage wishlist");
+    if (!user) {
+      toast.error('Please sign in to manage wishlist');
       return;
     }
 
     try {
-      const response = await axios.post("/api/wishlist", { productId, action: "toggle" });
+      const response = await axios.post('/api/wishlist', { productId, action: 'toggle' });
       toast.success(response.data.message);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to update wishlist");
+      toast.error(error.response?.data?.message || 'Failed to update wishlist');
     }
   };
 
   const displayedProducts = getFilteredProducts();
 
   const priceRanges = [
-    { label: "All Prices", value: "" },
-    { label: "Under ฿25", value: "0-25" },
-    { label: "฿25 - ฿50", value: "25-50" },
-    { label: "฿50 - ฿100", value: "50-100" },
-    { label: "Over ฿100", value: "100-10000" },
+    { label: 'All Prices', value: '' },
+    { label: 'Under ฿25', value: '0-25' },
+    { label: '฿25 - ฿50', value: '25-50' },
+    { label: '฿50 - ฿100', value: '50-100' },
+    { label: 'Over ฿100', value: '100-10000' },
   ];
 
   const sortOptions = [
-    { label: "Featured", value: "" },
-    { label: "Price: Low to High", value: "price-asc" },
-    { label: "Price: High to Low", value: "price-desc" },
-    { label: "Name", value: "name" },
-    { label: "Top Rated", value: "rating" },
+    { label: 'Featured', value: '' },
+    { label: 'Price: Low to High', value: 'price-asc' },
+    { label: 'Price: High to Low', value: 'price-desc' },
+    { label: 'Name', value: 'name' },
+    { label: 'Top Rated', value: 'rating' },
   ];
 
   if (isLoading || productsLoading) {
@@ -209,9 +208,7 @@ export default function Product() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center p-8 max-w-lg mx-auto">
           <h2 className="text-2xl font-bold text-error mb-4">Oops! Something went wrong</h2>
-          <p className="text-text-secondary mb-6">
-            We couldn't load our handcrafted products. Please try again later.
-          </p>
+          <p className="text-text-secondary mb-6">We couldn't load our handcrafted products. Please try again later.</p>
           <button
             onClick={() => window.location.reload()}
             className="btn-primary bg-primary hover:bg-primary-dark"
@@ -225,7 +222,10 @@ export default function Product() {
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
-      <LearnMoreModal isOpen={isLearnMoreModalOpen} onClose={() => setIsLearnMoreModalOpen(false)} />
+      <LearnMoreModal
+        isOpen={isLearnMoreModalOpen}
+        onClose={() => setIsLearnMoreModalOpen(false)}
+      />
 
       <section className="relative h-[80vh] lg:h-[80vh] bg-gradient-to-r from-background-secondary to-primary-light dark:from-background-secondary dark:to-primary-dark">
         <div className="absolute inset-0 opacity-10">
@@ -279,10 +279,7 @@ export default function Product() {
             viewport={{ once: true }}
           >
             <h2 className="text-2xl md:text-3xl font-bold mb-4 text-text-primary">Shop by Category</h2>
-            <p className="text-text-secondary mb-8 max-w-2xl">
-              Explore our collection of handcrafted products organized by category, each representing unique
-              craftsmanship and cultural heritage.
-            </p>
+            <p className="text-text-secondary mb-8 max-w-2xl">Explore our collection of handcrafted products organized by category, each representing unique craftsmanship and cultural heritage.</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
@@ -298,7 +295,7 @@ export default function Product() {
               >
                 <div className="aspect-[4/3] md:aspect-square relative">
                   <Image
-                    src={category.image?.url || "/images/placeholder.jpg"}
+                    src={category.image?.url || '/images/placeholder.jpg'}
                     alt={category.name}
                     fill
                     className="object-cover"
@@ -341,7 +338,7 @@ export default function Product() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text-muted" />
                 {filters.searchQuery && (
                   <button
-                    onClick={() => setFilters((prev) => ({ ...prev, searchQuery: "" }))}
+                    onClick={() => setFilters((prev) => ({ ...prev, searchQuery: '' }))}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2"
                   >
                     <X className="h-4 w-4 text-text-muted hover:text-error" />
@@ -367,7 +364,7 @@ export default function Product() {
                 <div className="flex items-center bg-primary/10 text-primary px-3 py-1.5 rounded-full text-sm">
                   <span>{filters.category}</span>
                   <button
-                    onClick={() => setFilters((prev) => ({ ...prev, category: "" }))}
+                    onClick={() => setFilters((prev) => ({ ...prev, category: '' }))}
                     className="ml-2"
                   >
                     <X className="h-3 w-3" />
@@ -380,7 +377,7 @@ export default function Product() {
           {showFilters && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
+              animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3 }}
               className="mt-3 pt-3 border-t border-border-primary grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
@@ -389,11 +386,11 @@ export default function Product() {
                 <h4 className="text-sm font-medium mb-2 text-text-secondary">Categories</h4>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setFilters((prev) => ({ ...prev, category: "" }))}
+                    onClick={() => setFilters((prev) => ({ ...prev, category: '' }))}
                     className={`px-3 py-1.5 text-xs rounded-full ${
-                      filters.category === ""
-                        ? "bg-primary text-text-inverted"
-                        : "bg-surface-card hover:bg-surface-card/80 text-text-secondary"
+                      filters.category === ''
+                        ? 'bg-primary text-text-inverted'
+                        : 'bg-surface-card hover:bg-surface-card/80 text-text-secondary'
                     }`}
                   >
                     All
@@ -404,8 +401,8 @@ export default function Product() {
                       onClick={() => setFilters((prev) => ({ ...prev, category: category.name }))}
                       className={`px-3 py-1.5 text-xs rounded-full ${
                         filters.category === category.name
-                          ? "bg-primary text-text-inverted"
-                          : "bg-surface-card hover:bg-surface-card/80 text-text-secondary"
+                          ? 'bg-primary text-text-inverted'
+                          : 'bg-surface-card hover:bg-surface-card/80 text-text-secondary'
                       }`}
                     >
                       {category.name}
@@ -423,8 +420,8 @@ export default function Product() {
                       onClick={() => setFilters((prev) => ({ ...prev, priceRange: range.value }))}
                       className={`px-3 py-1.5 text-xs rounded-full ${
                         filters.priceRange === range.value
-                          ? "bg-primary text-text-inverted"
-                          : "bg-surface-card hover:bg-surface-card/80 text-text-secondary"
+                          ? 'bg-primary text-text-inverted'
+                          : 'bg-surface-card hover:bg-surface-card/80 text-text-secondary'
                       }`}
                     >
                       {range.label}
@@ -437,10 +434,10 @@ export default function Product() {
                 <button
                   onClick={() => {
                     setFilters({
-                      category: "",
-                      priceRange: "",
-                      sortBy: "",
-                      searchQuery: "",
+                      category: '',
+                      priceRange: '',
+                      sortBy: '',
+                      searchQuery: '',
                     });
                     setShowFilters(false);
                   }}
@@ -465,12 +462,12 @@ export default function Product() {
               className="space-y-2"
             >
               <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent">
-                {filters.searchQuery || filters.category ? "Filtered Products" : "Featured Products"}
+                {filters.searchQuery || filters.category ? 'Filtered Products' : 'Featured Products'}
               </h2>
               <p className="text-text-secondary">
-                {filters.searchQuery || filters.category
-                  ? `Showing ${displayedProducts.length} result${displayedProducts.length !== 1 ? "s" : ""}`
-                  : "Discover our handpicked artisanal treasures"}
+                {(filters.searchQuery || filters.category)
+                  ? `Showing ${displayedProducts.length} result${displayedProducts.length !== 1 ? 's' : ''}`
+                  : 'Discover our handpicked artisanal treasures'}
               </p>
             </motion.div>
           </div>
@@ -485,14 +482,12 @@ export default function Product() {
                 We couldn't find any products matching your current filters. Try adjusting your search criteria.
               </p>
               <button
-                onClick={() =>
-                  setFilters({
-                    category: "",
-                    priceRange: "",
-                    sortBy: "",
-                    searchQuery: "",
-                  })
-                }
+                onClick={() => setFilters({
+                  category: '',
+                  priceRange: '',
+                  sortBy: '',
+                  searchQuery: '',
+                })}
                 className="btn-primary bg-primary hover:bg-primary-dark inline-flex items-center"
               >
                 <X className="h-4 w-4 mr-2" />
@@ -506,14 +501,14 @@ export default function Product() {
                   key={product._id}
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: (index % 4) * 0.1 }}
+                  transition={{ duration: 0.5, delay: index % 4 * 0.1 }}
                   viewport={{ once: true, margin: "-100px" }}
                   className="group bg-surface-card rounded-2xl shadow-md hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col overflow-hidden cursor-pointer"
                   onClick={() => handleProductClick(product._id)}
                 >
                   <div className="aspect-square relative bg-gradient-to-br from-background-secondary/60 to-background/60 dark:from-background-secondary/60 dark:to-background/60 overflow-hidden">
                     <Image
-                      src={product.images[0]?.url || "/images/placeholder.jpg"}
+                      src={product.images[0]?.url || '/images/placeholder.jpg'}
                       alt={product.name}
                       fill
                       className="object-cover transform group-hover:scale-110 transition-transform duration-700"
@@ -583,8 +578,8 @@ export default function Product() {
                       onClick={(e) => handleAddToCart(product, e)}
                       className={`w-full py-2.5 px-4 rounded-lg ${
                         isProductInCart(product._id)
-                          ? "bg-success hover:bg-success-dark"
-                          : "bg-primary hover:bg-primary-dark"
+                          ? 'bg-success hover:bg-success-dark'
+                          : 'bg-primary hover:bg-primary-dark'
                       } text-text-inverted transition-all duration-300 flex items-center justify-center gap-2`}
                     >
                       {isProductInCart(product._id) ? (

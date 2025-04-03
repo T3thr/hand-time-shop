@@ -1,37 +1,37 @@
 // components/layouts/Cart.jsx
-"use client";
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
-import { useCart } from "@/context/CartContext";
-import { useSession } from "next-auth/react";
-import Image from "next/image";
-import Link from "next/link";
-import LineCheckoutModal from "./LineCheckoutModal";
+'use client';
+import React, { useState, useContext } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
+import AuthContext from '@/context/AuthContext';
+import Image from 'next/image';
+import Link from 'next/link';
+import LineCheckoutModal from './LineCheckoutModal';
 
 const Cart = ({ isOpen, onClose }) => {
   const { cartItems, updateQuantity, removeFromCart, getCartSummary } = useCart();
   const { subtotal, totalItems } = getCartSummary();
-  const { data: session, status } = useSession();
+  const { user } = useContext(AuthContext);
   const [isLineCheckoutModalOpen, setIsLineCheckoutModalOpen] = useState(false);
 
   const slideVariants = {
     mobile: {
-      initial: { y: "100%" },
+      initial: { y: '100%' },
       animate: { y: 0 },
-      exit: { y: "100%" },
+      exit: { y: '100%' },
     },
     desktop: {
-      initial: { x: "100%" },
+      initial: { x: '100%' },
       animate: { x: 0 },
-      exit: { x: "100%" },
+      exit: { x: '100%' },
     },
   };
 
   const handleProceedToCheckout = (e) => {
     e.preventDefault();
-    if (status === "unauthenticated") {
-      window.location.href = "/signin";
+    if (!user) {
+      window.location.href = '/signin';
       return;
     }
     setIsLineCheckoutModalOpen(true);
@@ -71,7 +71,7 @@ const Cart = ({ isOpen, onClose }) => {
                 onClose={onClose}
                 onCheckout={handleProceedToCheckout}
                 isMobile={true}
-                session={session}
+                user={user}
               />
             </motion.div>
 
@@ -92,14 +92,17 @@ const Cart = ({ isOpen, onClose }) => {
                 onClose={onClose}
                 onCheckout={handleProceedToCheckout}
                 isMobile={false}
-                session={session}
+                user={user}
               />
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      <LineCheckoutModal isOpen={isLineCheckoutModalOpen} onClose={handleCloseLineCheckoutModal} />
+      <LineCheckoutModal
+        isOpen={isLineCheckoutModalOpen}
+        onClose={handleCloseLineCheckoutModal}
+      />
     </>
   );
 };
@@ -113,7 +116,7 @@ const CartContent = ({
   onClose,
   onCheckout,
   isMobile,
-  session,
+  user,
 }) => {
   return (
     <div className="flex flex-col h-full bg-surface-card transition-colors duration-300">
@@ -122,7 +125,7 @@ const CartContent = ({
           <div className="flex items-center space-x-3">
             <h2 className="text-xl font-semibold text-text-primary">Shopping Cart</h2>
             <span className="text-sm text-text-muted">
-              ({totalItems} {totalItems === 1 ? "item" : "items"})
+              ({totalItems} {totalItems === 1 ? 'item' : 'items'})
             </span>
           </div>
           <button
@@ -143,7 +146,12 @@ const CartContent = ({
                 className="flex space-x-4 p-4 bg-background-secondary rounded-lg transition-colors duration-200"
               >
                 <div className="relative h-20 w-20 flex-shrink-0">
-                  <Image src={item.image} alt={item.name} fill className="object-cover rounded-md" />
+                  <Image
+                    src={item.image}
+                    alt={item.name}
+                    fill
+                    className="object-cover rounded-md"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-medium text-text-primary truncate">{item.name}</h3>
@@ -178,12 +186,7 @@ const CartContent = ({
         <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
           <div className="w-16 h-16 bg-background-secondary rounded-full flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
             </svg>
           </div>
           <h3 className="text-lg font-medium text-text-primary mb-2">Your cart is empty</h3>

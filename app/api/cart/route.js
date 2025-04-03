@@ -1,3 +1,4 @@
+// app/api/cart/route.js
 import { NextResponse } from 'next/server';
 import dbConnect from '@/backend/lib/mongodb';
 import User from '@/backend/models/User';
@@ -8,16 +9,16 @@ export async function GET() {
   try {
     await dbConnect();
     const session = await getServerSession(options);
-    
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await User.findOne({ 
+    const user = await User.findOne({
       $or: [
         { email: session.user?.email },
-        { lineId: session.user?.sub }
-      ]
+        { lineId: session.user?.lineId },
+      ],
     }).select('cart');
 
     if (!user) {
@@ -50,46 +51,43 @@ export async function POST(request) {
       );
     }
 
-    // Check if the product already exists in the cart
     const existingUser = await User.findOne({
       $or: [
         { email: session.user?.email },
-        { lineId: session.user?.sub }
+        { lineId: session.user?.lineId },
       ],
-      'cart.productId': product.id
+      'cart.productId': product.id,
     });
 
     if (existingUser) {
-      // If product exists, update the quantity instead of adding new item
       const existingItem = existingUser.cart.find(item => item.productId === product.id);
       const newQuantity = existingItem ? existingItem.quantity + 1 : 1;
-      
+
       const user = await User.findOneAndUpdate(
-        { 
+        {
           $or: [
             { email: session.user?.email },
-            { lineId: session.user?.sub }
+            { lineId: session.user?.lineId },
           ],
-          'cart.productId': product.id
+          'cart.productId': product.id,
         },
         {
           $set: {
             'cart.$.quantity': newQuantity,
-            'cart.$.lastUpdated': new Date()
-          }
+            'cart.$.lastUpdated': new Date(),
+          },
         },
-        { new: true }
+        { new: true },
       ).select('cart');
-      
+
       return NextResponse.json({ cart: user.cart });
     } else {
-      // If product doesn't exist, add it to the cart
       const user = await User.findOneAndUpdate(
-        { 
+        {
           $or: [
             { email: session.user?.email },
-            { lineId: session.user?.sub }
-          ]
+            { lineId: session.user?.lineId },
+          ],
         },
         {
           $push: {
@@ -99,11 +97,11 @@ export async function POST(request) {
               price: product.price,
               quantity: 1,
               image: product.image || '/images/placeholder.jpg',
-              variant: product.variant || {}
-            }
-          }
+              variant: product.variant || {},
+            },
+          },
         },
-        { new: true }
+        { new: true },
       ).select('cart');
 
       if (!user) {
@@ -138,20 +136,20 @@ export async function PUT(request) {
     }
 
     const user = await User.findOneAndUpdate(
-      { 
+      {
         $or: [
           { email: session.user?.email },
-          { lineId: session.user?.sub }
+          { lineId: session.user?.lineId },
         ],
-        'cart.productId': productId
+        'cart.productId': productId,
       },
       {
         $set: {
           'cart.$.quantity': quantity,
-          'cart.$.lastUpdated': new Date()
-        }
+          'cart.$.lastUpdated': new Date(),
+        },
       },
-      { new: true }
+      { new: true },
     ).select('cart');
 
     if (!user) {
@@ -188,18 +186,18 @@ export async function DELETE(request) {
     }
 
     const user = await User.findOneAndUpdate(
-      { 
+      {
         $or: [
           { email: session.user?.email },
-          { lineId: session.user?.sub }
-        ]
+          { lineId: session.user?.lineId },
+        ],
       },
       {
         $pull: {
-          cart: { productId }
-        }
+          cart: { productId },
+        },
       },
-      { new: true }
+      { new: true },
     ).select('cart');
 
     if (!user) {
