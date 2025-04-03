@@ -34,6 +34,10 @@ const Cart = ({ isOpen, onClose }) => {
       window.location.href = '/signin';
       return;
     }
+    if (!session?.user?.id) {
+      window.location.href = '/signin';
+      return;
+    }
     setIsLineCheckoutModalOpen(true);
   };
 

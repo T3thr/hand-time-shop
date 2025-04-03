@@ -15,7 +15,7 @@ export const options = {
         username: { label: "Username", type: "text", placeholder: "Admin" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         await mongodbConnect();
 
         if (!credentials?.username || !credentials?.password) {
@@ -64,47 +64,19 @@ export const options = {
           throw new Error("LINE user ID is required");
         }
 
-        let user = await User.findOne({ lineId: credentials.userId });
+        const user = await User.findOne({ lineId: credentials.userId });
 
         if (!user) {
-          // New LINE user - populate all required fields
-          user = await User.create({
-            lineId: credentials.userId,
-            name: credentials.displayName || `LINE User ${credentials.userId.slice(0, 4)}`,
-            avatar: credentials.pictureUrl || null,
-            role: "user",
-            email: null, // Optional for LINE users
-            username: null, // Optional for LINE users
-            password: null, // No password for LINE users
-            cart: [],
-            wishlist: [],
-            orders: [],
-            addresses: [],
-            isVerified: true, // LINE users are verified by default
-            lastLogin: new Date(),
-            preferences: {
-              theme: "system",
-              notifications: { email: true, sms: false },
-            },
-            stats: {
-              totalOrders: 0,
-              totalSpent: 0,
-              lastOrderDate: null,
-            },
-          });
-        } else {
-          // Existing user - only update lastLogin
-          user.lastLogin = new Date();
-          await user.save();
+          throw new Error("User not found. Please sign in via LINE first.");
         }
 
         return {
           id: user._id.toString(),
           name: user.name,
           email: user.email || null,
-          image: user.avatar,
+          image: user.avatar || null,
           role: user.role,
-          lineId: user.lineId, // Include LINE-specific data
+          lineId: user.lineId,
         };
       },
     }),
@@ -114,7 +86,9 @@ export const options = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.lineId = user.lineId || null; // LINE-specific data in token
+        token.lineId = user.lineId || null;
+        token.name = user.name;
+        token.image = user.image || null;
       }
       return token;
     },
@@ -122,7 +96,9 @@ export const options = {
       if (token) {
         session.user.id = token.id;
         session.user.role = token.role;
-        session.user.lineId = token.lineId; // LINE-specific data in session
+        session.user.lineId = token.lineId;
+        session.user.name = token.name;
+        session.user.image = token.image;
       }
       return session;
     },

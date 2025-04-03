@@ -110,12 +110,13 @@ export default function Product() {
   
     try {
       const cartItem = {
-        id: product._id,
+        productId: product._id,
         name: product.name,
         price: product.price,
         description: product.description,
         image: product.images[0]?.url || '/images/placeholder.jpg',
         category: product.categories[0] || '',
+        quantity: 1,
       };
   
       const success = await addToCart(cartItem);
@@ -153,9 +154,9 @@ export default function Product() {
     router.push(`/product/${productId}`);
   };
 
-  const isProductInCart = (productId) => cartItems.some((item) => item.id === productId);
+  const isProductInCart = (productId) => cartItems.some((item) => item.productId === productId);
   const getProductQuantityInCart = (productId) => {
-    const item = cartItems.find((item) => item.id === productId);
+    const item = cartItems.find((item) => item.productId === productId);
     return item ? item.quantity : 0;
   };
 
@@ -164,6 +165,7 @@ export default function Product() {
 
     if (status === 'unauthenticated') {
       toast.error('Please sign in to manage wishlist');
+      router.push('/signin');
       return;
     }
 

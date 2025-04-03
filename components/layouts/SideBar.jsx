@@ -2,7 +2,7 @@
 'use client';
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react"; // Remove signIn from here
+import { useSession, signOut } from "next-auth/react";
 import { 
   Menu, User, X, Home, Tag, Sparkles, LogOut, ChevronRight,
   Settings, Shield, Copy, Eye, EyeOff, Heart
@@ -14,10 +14,8 @@ import SigninModal from "@/components/auth/SigninModal";
 import SignoutModal from "@/components/auth/SignoutModal";
 import { FaLine } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
-import axios from 'axios';
 
-// Dynamically import liff to avoid SSR issues
-const liff = dynamic(
+const LiffProvider = dynamic(
   () => import('@line/liff').then((mod) => mod.default),
   { ssr: false }
 );
@@ -36,10 +34,9 @@ export default function SideBar({ isOpen, onClose }) {
   const [isLineLoading, setIsLineLoading] = useState(false);
   const [profile, setProfile] = useState(null);
   const [showUserId, setShowUserId] = useState(false);
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const { adminSignIn } = useContext(AuthContext);
 
-  // Initialize LIFF only when sidebar opens
   useEffect(() => {
     if (!isOpen) return;
 
@@ -50,11 +47,11 @@ export default function SideBar({ isOpen, onClose }) {
           return;
         }
 
-        const liffModule = (await import('@line/liff')).default;
-        await liffModule.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+        const liff = (await import('@line/liff')).default;
+        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
         
-        if (liffModule.isLoggedIn()) {
-          const profileData = await liffModule.getProfile();
+        if (liff.isLoggedIn()) {
+          const profileData = await liff.getProfile();
           setProfile(profileData);
         }
       } catch (error) {
@@ -68,34 +65,33 @@ export default function SideBar({ isOpen, onClose }) {
   const handleLineSignIn = useCallback(async () => {
     setIsLineLoading(true);
     try {
-      const liffModule = (await import('@line/liff')).default;
-
-      if (!process.env.NEXT_PUBLIC_LIFF_ID) {
-        throw new Error("LIFF ID is not set in environment variables");
+      const liff = (await import('@line/liff')).default;
+      
+      if (!liff.isLoggedIn()) {
+        await liff.login();
+        return; // After login, this function will re-run
       }
 
-      await liffModule.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
-
-      if (!liffModule.isLoggedIn()) {
-        await liffModule.login({ redirectUri: window.location.href });
-        return; // After login, the page will reload, and useEffect will handle profile
-      }
-
-      const profile = await liffModule.getProfile();
+      const profile = await liff.getProfile();
       setProfile(profile);
 
-      // Send LINE credentials to the new API route
-      const response = await axios.post('/api/auth/line/callback', {
-        userId: profile.userId,
-        displayName: profile.displayName,
-        pictureUrl: profile.pictureUrl,
+      // Call the custom LINE login API route
+      const response = await fetch("/api/auth/line-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: profile.userId,
+          displayName: profile.displayName,
+          pictureUrl: profile.pictureUrl,
+        }),
       });
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || "Failed to authenticate with LINE");
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "LINE login failed");
       }
 
-      toast.success("Successfully signed in with LINE!");
+      toast.success("Signed in with LINE successfully!");
     } catch (error) {
       console.error("LINE login error:", error);
       toast.error(`LINE login failed: ${error.message}`);
@@ -115,9 +111,9 @@ export default function SideBar({ isOpen, onClose }) {
       }
       
       try {
-        const liffModule = (await import('@line/liff')).default;
-        if (liffModule?.isLoggedIn?.()) {
-          await liffModule.logout();
+        const liff = (await import('@line/liff')).default;
+        if (liff?.isLoggedIn?.()) {
+          await liff.logout();
         }
       } catch (liffError) {
         console.warn("LIFF logout error:", liffError);
@@ -147,21 +143,10 @@ export default function SideBar({ isOpen, onClose }) {
       );
     }
     
-    if (profile?.pictureUrl) {
+    if (session?.user?.image || profile?.pictureUrl) {
       return (
         <img 
-          src={profile.pictureUrl} 
-          alt="Profile" 
-          className="h-10 w-10 rounded-full object-cover"
-          loading="lazy"
-        />
-      );
-    }
-    
-    if (session?.user?.image) {
-      return (
-        <img 
-          src={session.user.image} 
+          src={session.user.image || profile.pictureUrl} 
           alt="Profile" 
           className="h-10 w-10 rounded-full object-cover"
           loading="lazy"
@@ -192,10 +177,10 @@ export default function SideBar({ isOpen, onClose }) {
   const renderUserInfo = useCallback(() => {
     if (session?.user?.email) {
       return session.user.email;
-    } else if (profile?.userId) {
+    } else if (session?.user?.lineId || profile?.userId) {
       return (
         <div className="flex flex-col space-y-2">
-          <span className="truncate">{profile?.displayName || 'LINE User'}</span>
+          <span className="truncate">{session.user.name || profile?.displayName || 'LINE User'}</span>
           <div className="flex items-center space-x-1">
             <button 
               onClick={() => setShowUserId(!showUserId)}
@@ -207,7 +192,7 @@ export default function SideBar({ isOpen, onClose }) {
             {showUserId && (
               <div className="flex items-center space-x-1 max-w-12 overflow-hidden">
                 <span className="text-xs bg-container px-2 py-1 rounded truncate">
-                  {profile.userId}
+                  {session.user.lineId || profile?.userId}
                 </span>
                 <button 
                   onClick={copyUserId}
@@ -289,7 +274,7 @@ export default function SideBar({ isOpen, onClose }) {
                 </div>
 
                 <div className="p-4 border-t border-border-primary">
-                  {session || profile ? (
+                  {session ? (
                     <button
                       onClick={handleLogoutConfirmation}
                       className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-container hover:bg-container/80 transition-colors"
