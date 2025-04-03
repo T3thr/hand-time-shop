@@ -114,7 +114,7 @@ export const options = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.lineId = user.lineId || null; // Add LINE-specific data to token
+        token.lineId = user.lineId || null; // LINE-specific data in token
       }
       return token;
     },
@@ -122,7 +122,7 @@ export const options = {
       if (token) {
         session.user.id = token.id;
         session.user.role = token.role;
-        session.user.lineId = token.lineId; // Add LINE-specific data to session
+        session.user.lineId = token.lineId; // LINE-specific data in session
       }
       return session;
     },

@@ -1,7 +1,8 @@
-'use client'
+// components/layouts/SideBar.jsx
+'use client';
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import Link from "next/link";
-import { useSession, signOut, signIn } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react"; // Remove signIn from here
 import { 
   Menu, User, X, Home, Tag, Sparkles, LogOut, ChevronRight,
   Settings, Shield, Copy, Eye, EyeOff, Heart
@@ -13,9 +14,10 @@ import SigninModal from "@/components/auth/SigninModal";
 import SignoutModal from "@/components/auth/SignoutModal";
 import { FaLine } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
+import axios from 'axios';
 
 // Dynamically import liff to avoid SSR issues
-const LiffProvider = dynamic(
+const liff = dynamic(
   () => import('@line/liff').then((mod) => mod.default),
   { ssr: false }
 );
@@ -34,7 +36,7 @@ export default function SideBar({ isOpen, onClose }) {
   const [isLineLoading, setIsLineLoading] = useState(false);
   const [profile, setProfile] = useState(null);
   const [showUserId, setShowUserId] = useState(false);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { adminSignIn } = useContext(AuthContext);
 
   // Initialize LIFF only when sidebar opens
@@ -48,16 +50,15 @@ export default function SideBar({ isOpen, onClose }) {
           return;
         }
 
-        const liff = (await import('@line/liff')).default;
-        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+        const liffModule = (await import('@line/liff')).default;
+        await liffModule.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
         
-        if (liff.isLoggedIn()) {
-          const profileData = await liff.getProfile();
+        if (liffModule.isLoggedIn()) {
+          const profileData = await liffModule.getProfile();
           setProfile(profileData);
         }
       } catch (error) {
         console.error("LIFF initialization error:", error);
-        // Don't show toast here to avoid spamming users
       }
     };
 
@@ -67,33 +68,37 @@ export default function SideBar({ isOpen, onClose }) {
   const handleLineSignIn = useCallback(async () => {
     setIsLineLoading(true);
     try {
-      const liff = (await import('@line/liff')).default;
-      
-      if (!liff.isLoggedIn()) {
-        await liff.login();
-        return; // Will redirect, no need for further processing
+      const liffModule = (await import('@line/liff')).default;
+
+      if (!process.env.NEXT_PUBLIC_LIFF_ID) {
+        throw new Error("LIFF ID is not set in environment variables");
       }
 
-      const profile = await liff.getProfile();
+      await liffModule.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+
+      if (!liffModule.isLoggedIn()) {
+        await liffModule.login({ redirectUri: window.location.href });
+        return; // After login, the page will reload, and useEffect will handle profile
+      }
+
+      const profile = await liffModule.getProfile();
       setProfile(profile);
 
-      // Trigger NextAuth sign-in with LINE credentials
-      const result = await signIn("line", {
-        redirect: false,
+      // Send LINE credentials to the new API route
+      const response = await axios.post('/api/auth/line/callback', {
         userId: profile.userId,
         displayName: profile.displayName,
-        pictureUrl: profile.pictureUrl
+        pictureUrl: profile.pictureUrl,
       });
 
-      if (result?.error) {
-        throw new Error(result.error);
+      if (!response.data.success) {
+        throw new Error(response.data.error || "Failed to authenticate with LINE");
       }
+
+      toast.success("Successfully signed in with LINE!");
     } catch (error) {
       console.error("LINE login error:", error);
-      // Only show toast for non-redirect errors
-      if (!error.message.includes("redirect")) {
-        toast.error("LINE login failed. Please try again.");
-      }
+      toast.error(`LINE login failed: ${error.message}`);
     } finally {
       setIsLineLoading(false);
     }
@@ -105,16 +110,14 @@ export default function SideBar({ isOpen, onClose }) {
 
   const handleLogout = useCallback(async () => {
     try {
-      // Sign out from NextAuth first
       if (session) {
         await signOut({ callbackUrl: '/' });
       }
       
-      // Then sign out from LIFF if available
       try {
-        const liff = (await import('@line/liff')).default;
-        if (liff?.isLoggedIn?.()) {
-          await liff.logout();
+        const liffModule = (await import('@line/liff')).default;
+        if (liffModule?.isLoggedIn?.()) {
+          await liffModule.logout();
         }
       } catch (liffError) {
         console.warn("LIFF logout error:", liffError);
