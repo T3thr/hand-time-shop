@@ -1,37 +1,37 @@
-// components/layouts/Cart.jsx
-'use client';
-import React, { useState, useContext } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
-import AuthContext from '@/context/AuthContext';
-import Image from 'next/image';
-import Link from 'next/link';
-import LineCheckoutModal from './LineCheckoutModal';
+"use client";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { X, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
+import { useCart } from "@/context/CartContext";
+import Image from "next/image";
+import Link from "next/link";
+import LineCheckoutModal from "./LineCheckoutModal";
+import { useContext } from "react";
+import AuthContext from "@/context/AuthContext";
 
 const Cart = ({ isOpen, onClose }) => {
   const { cartItems, updateQuantity, removeFromCart, getCartSummary } = useCart();
   const { subtotal, totalItems } = getCartSummary();
-  const { user } = useContext(AuthContext);
+  const { user, status } = useContext(AuthContext);
   const [isLineCheckoutModalOpen, setIsLineCheckoutModalOpen] = useState(false);
 
   const slideVariants = {
     mobile: {
-      initial: { y: '100%' },
+      initial: { y: "100%" },
       animate: { y: 0 },
-      exit: { y: '100%' },
+      exit: { y: "100%" },
     },
     desktop: {
-      initial: { x: '100%' },
+      initial: { x: "100%" },
       animate: { x: 0 },
-      exit: { x: '100%' },
+      exit: { x: "100%" },
     },
   };
 
   const handleProceedToCheckout = (e) => {
     e.preventDefault();
-    if (!user) {
-      window.location.href = '/signin';
+    if (status === "unauthenticated") {
+      window.location.href = "/signin";
       return;
     }
     setIsLineCheckoutModalOpen(true);
@@ -99,10 +99,7 @@ const Cart = ({ isOpen, onClose }) => {
         )}
       </AnimatePresence>
 
-      <LineCheckoutModal
-        isOpen={isLineCheckoutModalOpen}
-        onClose={handleCloseLineCheckoutModal}
-      />
+      <LineCheckoutModal isOpen={isLineCheckoutModalOpen} onClose={handleCloseLineCheckoutModal} />
     </>
   );
 };
@@ -125,7 +122,7 @@ const CartContent = ({
           <div className="flex items-center space-x-3">
             <h2 className="text-xl font-semibold text-text-primary">Shopping Cart</h2>
             <span className="text-sm text-text-muted">
-              ({totalItems} {totalItems === 1 ? 'item' : 'items'})
+              ({totalItems} {totalItems === 1 ? "item" : "items"})
             </span>
           </div>
           <button
@@ -146,12 +143,7 @@ const CartContent = ({
                 className="flex space-x-4 p-4 bg-background-secondary rounded-lg transition-colors duration-200"
               >
                 <div className="relative h-20 w-20 flex-shrink-0">
-                  <Image
-                    src={item.image}
-                    alt={item.name}
-                    fill
-                    className="object-cover rounded-md"
-                  />
+                  <Image src={item.image} alt={item.name} fill className="object-cover rounded-md" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-medium text-text-primary truncate">{item.name}</h3>

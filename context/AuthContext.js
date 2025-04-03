@@ -1,6 +1,4 @@
-// context/AuthContext.js
 "use client";
-
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { createContext, useState, useEffect, useCallback } from "react";
@@ -10,13 +8,12 @@ import { signIn as nextAuthSignIn, signOut as nextAuthSignOut, useSession } from
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  const { data: session, status, update } = useSession();
   const [user, setUser] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { data: session, status } = useSession();
 
-  // Sync user state with NextAuth session
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
       setUser(session.user);
@@ -28,27 +25,29 @@ export const AuthProvider = ({ children }) => {
   const signupUser = async ({ name, username, email, password }) => {
     try {
       setLoading(true);
-      const { data, status } = await axios.post("/api/auth/signup", {
+      const { data, status: resStatus } = await axios.post("/api/auth/signup", {
         name,
         username,
         email,
         password,
       });
-      if (status === 201) {
+      if (resStatus === 201) {
         toast.success("Signup successful! Please sign in to continue.", {
           autoClose: 3000,
-          onClose: () => router.push("/signin"),
+          onClose: () => router.push("/auth/signin"),
         });
+        return { success: true };
       }
     } catch (error) {
       const errorMessage = error.response?.data?.message || "Signup failed";
       toast.error(errorMessage);
+      return { success: false, message: errorMessage };
     } finally {
       setLoading(false);
     }
   };
 
-  const loginUser = async ({ username, password }) => {
+  const adminSignIn = async ({ username, password }) => {
     try {
       setLoading(true);
       const res = await nextAuthSignIn("admin-credentials", {
@@ -56,16 +55,19 @@ export const AuthProvider = ({ children }) => {
         username,
         password,
       });
-
+      
       if (res?.error) {
         toast.error(res.error);
         return { success: false, message: res.error };
       }
-
+      
       if (res?.ok) {
-        toast.success("Login successful!");
+        await update(); // Force session refresh
+        toast.success("Admin login successful!");
         return { success: true };
       }
+      
+      return { success: false, message: "Unknown error occurred" };
     } catch (error) {
       toast.error("Signin failed");
       return { success: false, message: "Signin failed" };
@@ -74,56 +76,82 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const adminSignIn = async ({ username, password }) => {
-    return loginUser({ username, password }); // Reuse loginUser for admin
-  };
-
-  const lineSignIn = useCallback(async ({ userId, displayName, pictureUrl }) => {
+  const lineSignIn = useCallback(async () => {
     try {
       setLoading(true);
-
-      // Register LINE user if not already registered
-      const registerRes = await axios.post("/api/auth/line/register", {
-        userId,
-        displayName,
-        pictureUrl,
-      });
-
-      if (registerRes.status === 201 || registerRes.status === 200) {
-        // Sign in with LINE credentials via NextAuth
-        const res = await nextAuthSignIn("line", {
-          redirect: false,
-          userId,
-          displayName,
-          pictureUrl,
-        });
-
-        if (res?.error) {
-          toast.error(res.error);
-          return { success: false, message: res.error };
-        }
-
-        if (res?.ok) {
-          toast.success("LINE login successful!");
-          return { success: true };
-        }
+      
+      // Import liff dynamically to avoid server-side import issues
+      const liff = (await import('@line/liff')).default;
+      
+      // Initialize LIFF
+      if (!liff.isInitialized()) {
+        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
       }
+      
+      // If not logged in, trigger login
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return { success: false, message: "Redirecting to LINE login..." };
+      }
+      
+      // Get user profile
+      const profile = await liff.getProfile();
+      const idToken = liff.getIDToken();
+      const accessToken = liff.getAccessToken();
+      
+      // Sign in with NextAuth using LINE credentials
+      const res = await nextAuthSignIn("line", {
+        redirect: false,
+        idToken,
+        accessToken,
+        profile: JSON.stringify({
+          userId: profile.userId,
+          displayName: profile.displayName,
+          pictureUrl: profile.pictureUrl,
+        }),
+      });
+      
+      if (res?.error) {
+        toast.error(res.error);
+        return { success: false, message: res.error };
+      }
+      
+      if (res?.ok) {
+        await update(); // Force session refresh
+        toast.success("LINE login successful!");
+        return { success: true };
+      }
+      
+      return { success: false, message: "Unknown error occurred" };
     } catch (error) {
       console.error("LINE signin error:", error);
       toast.error("LINE signin failed");
-      return { success: false, message: "LINE signin failed" };
+      return { success: false, message: error.message || "LINE signin failed" };
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [update]);
 
   const logoutUser = async () => {
     try {
       setLoading(true);
+      
+      // If LINE user, also logout from LINE
+      if (user?.lineId) {
+        try {
+          const liff = (await import('@line/liff')).default;
+          if (liff.isInitialized() && liff.isLoggedIn()) {
+            liff.logout();
+          }
+        } catch (e) {
+          console.error("LINE logout error:", e);
+        }
+      }
+      
       await nextAuthSignOut({ redirect: false });
       setUser(null);
       toast.success("Logged out successfully");
-      router.push("/signin");
+      router.push("/");
     } catch (error) {
       toast.error("Logout failed");
     } finally {
@@ -131,9 +159,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const clearErrors = () => {
-    setError(null);
-  };
+  const clearErrors = () => setError(null);
 
   return (
     <AuthContext.Provider
@@ -141,8 +167,8 @@ export const AuthProvider = ({ children }) => {
         user,
         error,
         loading,
+        status,
         signupUser,
-        loginUser,
         adminSignIn,
         lineSignIn,
         logoutUser,

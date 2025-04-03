@@ -1,4 +1,3 @@
-// app/api/auth/[...nextauth]/options.js
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import User from "@/backend/models/User";
@@ -27,14 +26,10 @@ export const options = {
           role: "admin",
         }).select("+password");
 
-        if (!user) {
-          throw new Error("Admin user not found");
-        }
+        if (!user) throw new Error("Admin user not found");
 
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isPasswordValid) {
-          throw new Error("Invalid password");
-        }
+        if (!isPasswordValid) throw new Error("Invalid password");
 
         user.lastLogin = new Date();
         await user.save();
@@ -48,41 +43,78 @@ export const options = {
       },
     }),
 
-    // LINE Provider with LIFF Integration
+    // LINE OAuth Provider - Updated for 2025
     CredentialsProvider({
       id: "line",
       name: "LINE",
       credentials: {
-        userId: { label: "User ID", type: "text" },
-        displayName: { label: "Display Name", type: "text" },
-        pictureUrl: { label: "Picture URL", type: "text" },
+        idToken: { label: "ID Token", type: "text" },
+        accessToken: { label: "Access Token", type: "text" },
+        profile: { label: "Profile", type: "text" },
       },
       async authorize(credentials) {
-        await mongodbConnect();
+        try {
+          if (!credentials?.profile) {
+            throw new Error("LINE profile data is required");
+          }
 
-        if (!credentials?.userId) {
-          throw new Error("LINE user ID is required");
+          // Parse the profile data
+          const profileData = JSON.parse(credentials.profile);
+          const { userId, displayName, pictureUrl } = profileData;
+
+          if (!userId) {
+            throw new Error("LINE user ID is missing");
+          }
+
+          // Connect to database
+          await mongodbConnect();
+
+          // Find or create user
+          let user = await User.findOne({ lineId: userId });
+
+          if (!user) {
+            user = await User.create({
+              lineId: userId,
+              name: displayName || `LINE User ${userId.slice(0, 4)}`,
+              avatar: pictureUrl || null,
+              role: "user",
+              email: null,
+              username: null,
+              password: null,
+              cart: [],
+              wishlist: [],
+              orders: [],
+              addresses: [],
+              isVerified: true,
+              lastLogin: new Date(),
+              preferences: {
+                theme: "system",
+                notifications: { email: true, sms: false },
+              },
+              stats: {
+                totalOrders: 0,
+                totalSpent: 0,
+                lastOrderDate: null,
+              },
+            });
+          } else {
+            // Update last login
+            user.lastLogin = new Date();
+            await user.save();
+          }
+
+          return {
+            id: user._id.toString(),
+            name: user.name,
+            email: user.email || null,
+            image: user.avatar || pictureUrl,
+            role: user.role,
+            lineId: userId,
+          };
+        } catch (error) {
+          console.error("LINE authorization error:", error);
+          throw new Error(`LINE login failed: ${error.message}`);
         }
-
-        let user = await User.findOne({ lineId: credentials.userId });
-
-        if (!user) {
-          throw new Error("LINE user not found. Please register first.");
-        }
-
-        user.lastLogin = new Date();
-        await user.save();
-
-        console.log("LINE authorize success:", { id: user._id.toString(), name: user.name, lineId: user.lineId });
-
-        return {
-          id: user._id.toString(),
-          name: user.name,
-          email: user.email || null,
-          image: user.avatar,
-          role: user.role,
-          lineId: user.lineId,
-        };
       },
     }),
   ],
@@ -94,24 +126,25 @@ export const options = {
         token.lineId = user.lineId || null;
         token.name = user.name;
         token.image = user.image;
-        console.log("JWT callback:", token);
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.lineId = token.lineId;
-        session.user.name = token.name;
-        session.user.image = token.image;
-        console.log("Session callback:", session);
+        session.user = {
+          ...session.user,
+          id: token.id,
+          role: token.role,
+          lineId: token.lineId,
+          name: token.name,
+          image: token.image,
+        };
       }
       return session;
     },
   },
   pages: {
-    signIn: "/",
+    signIn: "/auth/signin",
     error: "/auth/error",
   },
   secret: process.env.NEXTAUTH_SECRET,
