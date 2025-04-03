@@ -1,24 +1,36 @@
 // components/layouts/SideBar.jsx
-'use client';
+"use client";
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import Link from "next/link";
-import { useSession, signOut, signIn } from "next-auth/react";
-import { 
-  Menu, User, X, Home, Tag, Sparkles, LogOut, ChevronRight,
-  Settings, Shield, Copy, Eye, EyeOff, Heart
+import { useSession, signOut } from "next-auth/react";
+import {
+  Menu,
+  User,
+  X,
+  Home,
+  Tag,
+  Sparkles,
+  LogOut,
+  ChevronRight,
+  Settings,
+  Shield,
+  Copy,
+  Eye,
+  EyeOff,
+  Heart,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
 import AuthContext from "@/context/AuthContext";
 import SigninModal from "@/components/auth/SigninModal";
 import SignoutModal from "@/components/auth/SignoutModal";
-import { FaLine } from 'react-icons/fa';
-import dynamic from 'next/dynamic';
+import { FaLine } from "react-icons/fa";
+import dynamic from "next/dynamic";
 
-const LiffProvider = dynamic(
-  () => import('@line/liff').then((mod) => mod.default),
-  { ssr: false }
-);
+// Dynamically import liff to avoid SSR issues
+const LiffProvider = dynamic(() => import("@line/liff").then((mod) => mod.default), {
+  ssr: false,
+});
 
 const sidebarLinks = [
   { href: "/", icon: Home, label: "Home" },
@@ -34,8 +46,8 @@ export default function SideBar({ isOpen, onClose }) {
   const [isLineLoading, setIsLineLoading] = useState(false);
   const [profile, setProfile] = useState(null);
   const [showUserId, setShowUserId] = useState(false);
-  const { data: session, status } = useSession();
-  const { adminSignIn } = useContext(AuthContext);
+  const { data: session } = useSession();
+  const { adminSignIn, lineSignIn } = useContext(AuthContext);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -47,9 +59,9 @@ export default function SideBar({ isOpen, onClose }) {
           return;
         }
 
-        const liff = (await import('@line/liff')).default;
+        const liff = (await import("@line/liff")).default;
         await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
-        
+
         if (liff.isLoggedIn()) {
           const profileData = await liff.getProfile();
           setProfile(profileData);
@@ -65,8 +77,8 @@ export default function SideBar({ isOpen, onClose }) {
   const handleLineSignIn = useCallback(async () => {
     setIsLineLoading(true);
     try {
-      const liff = (await import('@line/liff')).default;
-      
+      const liff = (await import("@line/liff")).default;
+
       if (!liff.isLoggedIn()) {
         await liff.login();
         return;
@@ -75,41 +87,24 @@ export default function SideBar({ isOpen, onClose }) {
       const profile = await liff.getProfile();
       setProfile(profile);
 
-      // Register LINE user via API
-      const registerResponse = await fetch('/api/auth/line/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: profile.userId,
-          displayName: profile.displayName,
-          pictureUrl: profile.pictureUrl,
-        }),
-      });
-
-      if (!registerResponse.ok) {
-        throw new Error("Failed to register LINE user");
-      }
-
-      // Sign in with NextAuth
-      const result = await signIn("line", {
-        redirect: false,
+      const result = await lineSignIn({
         userId: profile.userId,
         displayName: profile.displayName,
         pictureUrl: profile.pictureUrl,
       });
 
-      if (result?.error) {
-        throw new Error(result.error);
+      if (!result.success) {
+        throw new Error(result.message);
       }
-
-      toast.success("Signed in with LINE successfully");
     } catch (error) {
       console.error("LINE login error:", error);
-      toast.error("LINE login failed. Please try again.");
+      if (!error.message.includes("redirect")) {
+        toast.error("LINE login failed. Please try again.");
+      }
     } finally {
       setIsLineLoading(false);
     }
-  }, []);
+  }, [lineSignIn]);
 
   const handleLogoutConfirmation = useCallback(() => {
     setIsSignoutModalOpen(true);
@@ -118,18 +113,18 @@ export default function SideBar({ isOpen, onClose }) {
   const handleLogout = useCallback(async () => {
     try {
       if (session) {
-        await signOut({ callbackUrl: '/' });
+        await signOut({ callbackUrl: "/" });
       }
-      
+
       try {
-        const liff = (await import('@line/liff')).default;
+        const liff = (await import("@line/liff")).default;
         if (liff?.isLoggedIn?.()) {
           await liff.logout();
         }
       } catch (liffError) {
         console.warn("LIFF logout error:", liffError);
       }
-      
+
       setProfile(null);
       setIsSignoutModalOpen(false);
     } catch (error) {
@@ -146,25 +141,36 @@ export default function SideBar({ isOpen, onClose }) {
   }, [profile]);
 
   const getUserAvatar = useCallback(() => {
-    if (session?.user?.role === 'admin') {
+    if (session?.user?.role === "admin") {
       return (
         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
           <Shield className="h-5 w-5 text-blue-600" />
         </div>
       );
     }
-    
-    if (profile?.pictureUrl || session?.user?.image) {
+
+    if (profile?.pictureUrl) {
       return (
-        <img 
-          src={profile?.pictureUrl || session.user.image} 
-          alt="Profile" 
+        <img
+          src={profile.pictureUrl}
+          alt="Profile"
           className="h-10 w-10 rounded-full object-cover"
           loading="lazy"
         />
       );
     }
-    
+
+    if (session?.user?.image) {
+      return (
+        <img
+          src={session.user.image}
+          alt="Profile"
+          className="h-10 w-10 rounded-full object-cover"
+          loading="lazy"
+        />
+      );
+    }
+
     return (
       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
         <User className="h-6 w-6 text-primary" />
@@ -175,11 +181,11 @@ export default function SideBar({ isOpen, onClose }) {
   const getUserRoleBadge = useCallback(() => {
     if (!session?.user?.role) return null;
     return (
-      <span className={`text-xs px-2 py-1 rounded-full ${
-        session.user.role === 'admin' 
-          ? 'bg-blue-100 text-blue-800' 
-          : 'bg-green-100 text-green-800'
-      }`}>
+      <span
+        className={`text-xs px-2 py-1 rounded-full ${
+          session.user.role === "admin" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+        }`}
+      >
         {session.user.role}
       </span>
     );
@@ -188,12 +194,12 @@ export default function SideBar({ isOpen, onClose }) {
   const renderUserInfo = useCallback(() => {
     if (session?.user?.email) {
       return session.user.email;
-    } else if (profile?.userId || session?.user?.lineId) {
+    } else if (profile?.userId) {
       return (
         <div className="flex flex-col space-y-2">
-          <span className="truncate">{profile?.displayName || session?.user?.name || 'LINE User'}</span>
+          <span className="truncate">{profile?.displayName || "LINE User"}</span>
           <div className="flex items-center space-x-1">
-            <button 
+            <button
               onClick={() => setShowUserId(!showUserId)}
               className="p-1 rounded hover:bg-container"
               aria-label={showUserId ? "Hide User ID" : "Show User ID"}
@@ -202,10 +208,8 @@ export default function SideBar({ isOpen, onClose }) {
             </button>
             {showUserId && (
               <div className="flex items-center space-x-1 max-w-12 overflow-hidden">
-                <span className="text-xs bg-container px-2 py-1 rounded truncate">
-                  {profile?.userId || session?.user?.lineId}
-                </span>
-                <button 
+                <span className="text-xs bg-container px-2 py-1 rounded truncate">{profile.userId}</span>
+                <button
                   onClick={copyUserId}
                   className="p-1 rounded hover:bg-container flex-shrink-0"
                   aria-label="Copy User ID"
@@ -252,12 +256,10 @@ export default function SideBar({ isOpen, onClose }) {
                           </h2>
                           {getUserRoleBadge()}
                         </div>
-                        <p className="text-sm text-text-secondary">
-                          {renderUserInfo()}
-                        </p>
+                        <p className="text-sm text-text-secondary">{renderUserInfo()}</p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={onClose}
                       className="p-2 hover:bg-container rounded-full flex-shrink-0"
                       aria-label="Close menu"
@@ -328,7 +330,7 @@ export default function SideBar({ isOpen, onClose }) {
         )}
       </AnimatePresence>
 
-      <SigninModal 
+      <SigninModal
         isOpen={isSigninModalOpen}
         onClose={() => setIsSigninModalOpen(false)}
         adminSignIn={adminSignIn}

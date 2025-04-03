@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import User from "@/backend/models/User";
 import mongodbConnect from "@/backend/lib/mongodb";
 import bcrypt from "bcryptjs";
+import liff from "@line/liff";
 
 export const options = {
   providers: [
@@ -48,7 +49,7 @@ export const options = {
       },
     }),
 
-    // LINE Provider
+    // LINE LIFF Provider
     CredentialsProvider({
       id: "line",
       name: "LINE",
@@ -67,36 +68,13 @@ export const options = {
         let user = await User.findOne({ lineId: credentials.userId });
 
         if (!user) {
-          // New LINE user - create with full schema
-          user = await User.create({
-            lineId: credentials.userId,
-            name: credentials.displayName || `LINE User ${credentials.userId.slice(0, 4)}`,
-            avatar: credentials.pictureUrl || null,
-            role: "user",
-            email: null,
-            username: null,
-            password: null,
-            cart: [],
-            wishlist: [],
-            orders: [],
-            addresses: [],
-            isVerified: true,
-            lastLogin: new Date(),
-            preferences: {
-              theme: "system",
-              notifications: { email: true, sms: false },
-            },
-            stats: {
-              totalOrders: 0,
-              totalSpent: 0,
-              lastOrderDate: null,
-            },
-          });
-        } else {
-          // Update existing user
-          user.lastLogin = new Date();
-          await user.save();
+          // New LINE user - registration will be handled via API route
+          // Here we just return null to trigger registration flow
+          return null;
         }
+
+        user.lastLogin = new Date();
+        await user.save();
 
         return {
           id: user._id.toString(),

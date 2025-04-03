@@ -38,11 +38,11 @@ export const AuthProvider = ({ children }) => {
   const signupUser = async ({ name, username, email, password }) => {
     try {
       setLoading(true);
-      const { data, status } = await axios.post("/api/auth/signup", { 
-        name, 
-        username, 
-        email, 
-        password 
+      const { data, status } = await axios.post("/api/auth/signup", {
+        name,
+        username,
+        email,
+        password,
       });
       if (status === 201) {
         toast.success("Signup successful! Please sign in to continue.", {
@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }) => {
   const loginUser = async ({ username, password }) => {
     try {
       setLoading(true);
-      const res = await nextAuthSignIn("user-credentials", {
+      const res = await nextAuthSignIn("admin-credentials", {
         redirect: false,
         username,
         password,
@@ -95,9 +95,10 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (res?.error) {
-        const errorMsg = res.error === "CredentialsSignin" 
-          ? "Invalid username/email or password" 
-          : res.error;
+        const errorMsg =
+          res.error === "CredentialsSignin"
+            ? "Invalid username/email or password"
+            : res.error;
         toast.error(errorMsg);
         return { success: false, message: errorMsg };
       }
@@ -109,6 +110,47 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       toast.error("Admin signin failed");
       return { success: false, message: "Admin signin failed" };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const lineSignIn = async ({ userId, displayName, pictureUrl }) => {
+    try {
+      setLoading(true);
+
+      // Register the LINE user if they don't exist
+      const registerResponse = await axios.post("/api/auth/line/register", {
+        userId,
+        displayName,
+        pictureUrl,
+      });
+
+      if (registerResponse.status !== 201 && registerResponse.status !== 200) {
+        throw new Error("Failed to register LINE user");
+      }
+
+      // Sign in with LINE credentials
+      const res = await nextAuthSignIn("line", {
+        redirect: false,
+        userId,
+        displayName,
+        pictureUrl,
+      });
+
+      if (res?.error) {
+        toast.error(res.error);
+        return { success: false, message: res.error };
+      }
+
+      if (res?.ok) {
+        await fetchUser();
+        toast.success("LINE login successful!");
+        return { success: true };
+      }
+    } catch (error) {
+      toast.error("LINE signin failed");
+      return { success: false, message: "LINE signin failed" };
     } finally {
       setLoading(false);
     }
@@ -141,6 +183,7 @@ export const AuthProvider = ({ children }) => {
         signupUser,
         loginUser,
         adminSignIn,
+        lineSignIn,
         logoutUser,
         setUser,
         clearErrors,
