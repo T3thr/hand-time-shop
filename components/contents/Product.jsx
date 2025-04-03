@@ -26,7 +26,7 @@ export default function Product() {
   const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { data: session, status } = useSession(); // Track session status
+  const { data: session, status } = useSession();
   const { addToCart, cartItems, getCartSummary } = useCart();
   const { products, isLoading: productsLoading, isError } = useProducts();
   const router = useRouter();
@@ -95,8 +95,15 @@ export default function Product() {
   const handleAddToCart = async (product, e) => {
     e.stopPropagation();
   
-    if (status === 'unauthenticated') { // Check session status instead of just session
+    if (status === 'unauthenticated') {
       toast.error('Please sign in to add items to cart');
+      router.push('/signin');
+      return;
+    }
+
+    // Ensure session is valid for both LINE and admin users
+    if (!session?.user?.id) {
+      toast.error('Session error. Please sign in again.');
       router.push('/signin');
       return;
     }
@@ -155,7 +162,7 @@ export default function Product() {
   const handleWishlist = async (productId, e) => {
     e.stopPropagation();
 
-    if (status === 'unauthenticated') { // Check status for wishlist too
+    if (status === 'unauthenticated') {
       toast.error('Please sign in to manage wishlist');
       return;
     }

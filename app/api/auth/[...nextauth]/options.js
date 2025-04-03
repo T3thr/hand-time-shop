@@ -22,12 +22,8 @@ export const options = {
           throw new Error("Username and password are required");
         }
 
-        // Find user by username or email with role "admin"
         const user = await User.findOne({
-          $or: [
-            { username: credentials.username },
-            { email: credentials.username },
-          ],
+          $or: [{ username: credentials.username }, { email: credentials.username }],
           role: "admin",
         }).select("+password");
 
@@ -35,13 +31,11 @@ export const options = {
           throw new Error("Admin user not found");
         }
 
-        // Validate password
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
         if (!isPasswordValid) {
           throw new Error("Invalid password");
         }
 
-        // Update lastLogin in User model
         user.lastLogin = new Date();
         await user.save();
 
@@ -71,24 +65,35 @@ export const options = {
         }
 
         let user = await User.findOne({ lineId: credentials.userId });
-        
+
         if (!user) {
-          // New user - createdAt will be automatically set
+          // New LINE user - populate all required fields
           user = await User.create({
             lineId: credentials.userId,
             name: credentials.displayName || `LINE User ${credentials.userId.slice(0, 4)}`,
             avatar: credentials.pictureUrl || null,
             role: "user",
-            lastLogin: new Date() // Set initial lastLogin
+            email: null, // Optional for LINE users
+            username: null, // Optional for LINE users
+            password: null, // No password for LINE users
+            cart: [],
+            wishlist: [],
+            orders: [],
+            addresses: [],
+            isVerified: true, // LINE users are verified by default
+            lastLogin: new Date(),
+            preferences: {
+              theme: "system",
+              notifications: { email: true, sms: false },
+            },
+            stats: {
+              totalOrders: 0,
+              totalSpent: 0,
+              lastOrderDate: null,
+            },
           });
         } else {
-          // Existing user - update profile and lastLogin
-          if (credentials.displayName && user.name !== credentials.displayName) {
-            user.name = credentials.displayName;
-          }
-          if (credentials.pictureUrl && user.avatar !== credentials.pictureUrl) {
-            user.avatar = credentials.pictureUrl;
-          }
+          // Existing user - only update lastLogin
           user.lastLogin = new Date();
           await user.save();
         }
@@ -99,6 +104,7 @@ export const options = {
           email: user.email || null,
           image: user.avatar,
           role: user.role,
+          lineId: user.lineId, // Include LINE-specific data
         };
       },
     }),
@@ -108,6 +114,7 @@ export const options = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.lineId = user.lineId || null; // Add LINE-specific data to token
       }
       return token;
     },
@@ -115,6 +122,7 @@ export const options = {
       if (token) {
         session.user.id = token.id;
         session.user.role = token.role;
+        session.user.lineId = token.lineId; // Add LINE-specific data to session
       }
       return session;
     },
@@ -126,7 +134,7 @@ export const options = {
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 };
