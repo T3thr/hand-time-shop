@@ -1,84 +1,115 @@
-import React from 'react';
+// components/layouts/Cart.jsx
+'use client';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import Image from 'next/image';
 import Link from 'next/link';
+import LineCheckoutModal from './LineCheckoutModal';
 
 const Cart = ({ isOpen, onClose }) => {
-  const { cartItems, updateQuantity, removeFromCart } = useCart();
-  
-  const subtotal = cartItems.reduce((sum, item) => 
-    sum + (item.price * item.quantity), 0
-  );
+  const { cartItems, updateQuantity, removeFromCart, getCartSummary } = useCart();
+  const { subtotal, totalItems } = getCartSummary();
+  const [isLineCheckoutModalOpen, setIsLineCheckoutModalOpen] = useState(false);
 
   const slideVariants = {
     mobile: {
       initial: { y: '100%' },
       animate: { y: 0 },
-      exit: { y: '100%' }
+      exit: { y: '100%' },
     },
     desktop: {
       initial: { x: '100%' },
       animate: { x: 0 },
-      exit: { x: '100%' }
-    }
+      exit: { x: '100%' },
+    },
+  };
+
+  const handleProceedToCheckout = (e) => {
+    e.preventDefault();
+    setIsLineCheckoutModalOpen(true);
+  };
+
+  const handleCloseLineCheckoutModal = () => {
+    setIsLineCheckoutModalOpen(false);
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
-          />
-
-          <motion.div
-            className="fixed bottom-0 left-0 right-0 h-[85vh] bg-surface-card rounded-t-3xl shadow-2xl z-50 md:hidden"
-            variants={slideVariants.mobile}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          >
-            <CartContent
-              cartItems={cartItems}
-              updateQuantity={updateQuantity}
-              removeFromCart={removeFromCart}
-              subtotal={subtotal}
-              onClose={onClose}
-              isMobile={true}
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             />
-          </motion.div>
 
-          <motion.div
-            className="fixed top-0 right-0 h-full w-[400px] bg-surface-card shadow-2xl z-50 hidden md:block"
-            variants={slideVariants.desktop}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          >
-            <CartContent
-              cartItems={cartItems}
-              updateQuantity={updateQuantity}
-              removeFromCart={removeFromCart}
-              subtotal={subtotal}
-              onClose={onClose}
-              isMobile={false}
-            />
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+            <motion.div
+              className="fixed bottom-0 left-0 right-0 h-[85vh] bg-surface-card rounded-t-3xl shadow-2xl z-50 md:hidden"
+              variants={slideVariants.mobile}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            >
+              <CartContent
+                cartItems={cartItems}
+                updateQuantity={updateQuantity}
+                removeFromCart={removeFromCart}
+                subtotal={subtotal}
+                totalItems={totalItems}
+                onClose={onClose}
+                onCheckout={handleProceedToCheckout}
+                isMobile={true}
+              />
+            </motion.div>
+
+            <motion.div
+              className="fixed top-0 right-0 h-full w-[400px] bg-surface-card shadow-2xl z-50 hidden md:block"
+              variants={slideVariants.desktop}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            >
+              <CartContent
+                cartItems={cartItems}
+                updateQuantity={updateQuantity}
+                removeFromCart={removeFromCart}
+                subtotal={subtotal}
+                totalItems={totalItems}
+                onClose={onClose}
+                onCheckout={handleProceedToCheckout}
+                isMobile={false}
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* LINE Checkout Modal */}
+      <LineCheckoutModal 
+        isOpen={isLineCheckoutModalOpen} 
+        onClose={handleCloseLineCheckoutModal} 
+      />
+    </>
   );
 };
 
-const CartContent = ({ cartItems, updateQuantity, removeFromCart, subtotal, onClose, isMobile }) => {
+const CartContent = ({ 
+  cartItems, 
+  updateQuantity, 
+  removeFromCart, 
+  subtotal, 
+  totalItems, 
+  onClose, 
+  onCheckout,
+  isMobile 
+}) => {
   return (
     <div className="flex flex-col h-full bg-surface-card transition-colors duration-300">
       <div className="p-4 border-b border-border-primary">
@@ -86,7 +117,7 @@ const CartContent = ({ cartItems, updateQuantity, removeFromCart, subtotal, onCl
           <div className="flex items-center space-x-3">
             <h2 className="text-xl font-semibold text-text-primary">Shopping Cart</h2>
             <span className="text-sm text-text-muted">
-              ({cartItems.length} {cartItems.length === 1 ? 'item' : 'items'})
+              ({totalItems} {totalItems === 1 ? 'item' : 'items'})
             </span>
           </div>
           <button 
@@ -103,7 +134,7 @@ const CartContent = ({ cartItems, updateQuantity, removeFromCart, subtotal, onCl
           <div className="space-y-4 px-4">
             {cartItems.map((item) => (
               <div
-                key={item.id}
+                key={item.productId}
                 className="flex space-x-4 p-4 bg-background-secondary rounded-lg transition-colors duration-200"
               >
                 <div className="relative h-20 w-20 flex-shrink-0">
@@ -116,23 +147,23 @@ const CartContent = ({ cartItems, updateQuantity, removeFromCart, subtotal, onCl
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-medium text-text-primary truncate">{item.name}</h3>
-                  <p className="text-sm text-text-muted mt-1">${item.price}</p>
+                  <p className="text-sm text-text-muted mt-1">฿{item.price.toFixed(2)}</p>
                   <div className="flex items-center space-x-2 mt-2">
                     <button
-                      onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
+                      onClick={() => updateQuantity(item.productId, Math.max(1, item.quantity - 1))}
                       className="p-1 hover:bg-interactive-muted rounded transition-colors duration-200"
                     >
                       <Minus className="h-4 w-4 text-text-secondary" />
                     </button>
                     <span className="w-8 text-center text-text-primary">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                       className="p-1 hover:bg-interactive-muted rounded transition-colors duration-200"
                     >
                       <Plus className="h-4 w-4 text-text-secondary" />
                     </button>
                     <button
-                      onClick={() => removeFromCart(item.id)}
+                      onClick={() => removeFromCart(item.productId)}
                       className="p-1 text-error hover:bg-error/20 rounded ml-2 transition-colors duration-200"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -167,10 +198,13 @@ const CartContent = ({ cartItems, updateQuantity, removeFromCart, subtotal, onCl
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-base font-medium text-text-primary">Subtotal</span>
-              <span className="text-lg font-semibold text-text-primary">${subtotal.toFixed(2)}</span>
+              <span className="text-lg font-semibold text-text-primary">฿{subtotal.toFixed(2)}</span>
             </div>
-            <button className="w-full py-3 px-4 bg-primary text-text-inverted rounded-lg hover:bg-primary-dark transition-colors duration-200 flex items-center justify-center space-x-2">
-              <span>Proceed to Checkout</span>
+            <button 
+              onClick={onCheckout}
+              className="block w-full py-3 px-4 bg-[#06C755] text-white rounded-lg hover:bg-[#05b54d] transition-colors duration-200 flex items-center justify-center space-x-2"
+            >
+              <span>Order via LINE</span>
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>

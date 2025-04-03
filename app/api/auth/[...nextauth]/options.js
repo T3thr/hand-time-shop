@@ -1,3 +1,4 @@
+// app/api/auth/[...nextauth]/options.js
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import User from "@/backend/models/User";
@@ -19,50 +20,31 @@ export const options = {
       async authorize(credentials, req) {
         await mongodbConnect();
 
-        // Check for hardcoded admin credentials first
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        if (
-          credentials?.username === "Admin" &&
-          credentials?.password === adminPassword
-        ) {
-          const adminId = process.env.ADMIN_ID || new mongoose.Types.ObjectId();
-          const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-          
-          await LoginActivity.create({
-            userId: adminId,
-            email: "admin@handtime.com",
-            name: "Admin",
-            username: "Admin",
-            ipAddress,
-            role: "admin",
-            lastLogin: new Date(),
-          });
-
-          return {
-            id: adminId,
-            name: "Admin",
-            email: "admin@handtime.com",
-            role: "admin",
-          };
+        if (!credentials?.username || !credentials?.password) {
+          return null;
         }
 
-        // Check database for admin users
-        const user = await User.findOne({ 
-          username: credentials?.username,
-          role: "admin"
+        // Find user by username or email with role "admin"
+        const user = await User.findOne({
+          $or: [
+            { username: credentials.username },
+            { email: credentials.username },
+          ],
+          role: "admin",
         }).select("+password");
 
-        if (!user) return null;
+        if (!user) {
+          return null; // User not found or not an admin
+        }
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials?.password,
-          user.password
-        );
+        // Validate password
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isPasswordValid) {
+          return null; // Invalid password
+        }
 
-        if (!isPasswordValid) return null;
-
+        // Log login activity
         const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-        
         await LoginActivity.create({
           userId: user._id,
           email: user.email,
@@ -73,8 +55,12 @@ export const options = {
           lastLogin: new Date(),
         });
 
+        // Update lastLogin in User model
+        user.lastLogin = new Date();
+        await user.save();
+
         return {
-          id: user._id,
+          id: user._id.toString(),
           name: user.name,
           email: user.email,
           role: user.role,
@@ -82,7 +68,7 @@ export const options = {
       },
     }),
 
-    // LINE Provider
+    // LINE Provider (unchanged)
     CredentialsProvider({
       id: "line",
       name: "LINE",
@@ -115,7 +101,7 @@ export const options = {
         });
 
         return {
-          id: user._id,
+          id: user._id.toString(),
           name: user.name,
           email: user.email || null,
           image: user.avatar,

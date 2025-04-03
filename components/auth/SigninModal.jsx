@@ -1,22 +1,23 @@
-'use client'
+// components/auth/SigninModal.jsx
+'use client';
 import React, { useState, useCallback, useEffect } from "react";
 import { LockKeyhole, User as UserIcon, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSession } from "next-auth/react"; // This is for session management
+import { useSession } from "next-auth/react";
 
 const SigninModal = ({ isOpen, onClose, adminSignIn }) => {
-  const { data: session, status } = useSession(); // Check session status and session data
+  const { data: session, status } = useSession();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Close modal if session exists
   useEffect(() => {
-    if (session) {
-      onClose(); // Close modal if user is already logged in
+    if (session && status === "authenticated") {
+      onClose();
     }
-  }, [session, onClose]);
+  }, [session, status, onClose]);
 
   const handleAdminLogin = useCallback(async (e) => {
     e.preventDefault();
@@ -27,13 +28,19 @@ const SigninModal = ({ isOpen, onClose, adminSignIn }) => {
 
     setIsLoading(true);
     try {
-      await adminSignIn({ username, password });
+      const result = await adminSignIn({ username, password });
+      if (result.success) {
+        toast.success("Admin login successful!");
+        onClose();
+      } else {
+        toast.error(result.message || "Login failed. Please check your credentials.");
+      }
     } catch (error) {
-      toast.error("Login failed. Please check your credentials.");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [username, password, adminSignIn]);
+  }, [username, password, adminSignIn, onClose]);
 
   return (
     <AnimatePresence>
@@ -62,6 +69,7 @@ const SigninModal = ({ isOpen, onClose, adminSignIn }) => {
                   onClick={onClose}
                   className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-fast"
                   aria-label="Close modal"
+                  disabled={isLoading}
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -78,7 +86,7 @@ const SigninModal = ({ isOpen, onClose, adminSignIn }) => {
                 <form onSubmit={handleAdminLogin}>
                   <div className="mb-4">
                     <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Username
+                      Username or Email
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -87,10 +95,11 @@ const SigninModal = ({ isOpen, onClose, adminSignIn }) => {
                       <input
                         className="input-field"
                         type="text"
-                        placeholder="Enter admin username"
+                        placeholder="Enter admin username or email"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
+                        disabled={isLoading}
                       />
                     </div>
                   </div>
@@ -110,6 +119,7 @@ const SigninModal = ({ isOpen, onClose, adminSignIn }) => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        disabled={isLoading}
                       />
                     </div>
                   </div>

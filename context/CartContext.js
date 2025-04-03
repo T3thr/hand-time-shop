@@ -1,170 +1,89 @@
-// context/CartContext.js
 'use client'
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useSession } from 'next-auth/react';
 
 const CartContext = createContext();
 
-// Constants for cart configuration
-const CART_CONFIG = {
-  VERSION: '1.0.0',
-  MAX_QUANTITY: 99,
-  MIN_QUANTITY: 1,
-  STORAGE_KEY_PREFIX: 'cart_',
-  DEBOUNCE_DELAY: 300,
-  MAX_CART_ITEMS: 50,
-};
-
-// Cart item validation schema
-const validateCartItem = (item) => {
-  const requiredFields = {
-    id: (id) => typeof id !== 'undefined' && id !== null,
-    quantity: (qty) => typeof qty === 'number' && qty >= CART_CONFIG.MIN_QUANTITY && qty <= CART_CONFIG.MAX_QUANTITY,
-    price: (price) => typeof price === 'number' && price >= 0,
-    name: (name) => typeof name === 'string' && name.length > 0,
-    image: (img) => typeof img === 'string' && img.length > 0,
-  };
-
-  const errors = Object.entries(requiredFields)
-    .filter(([field, validator]) => !validator(item[field]))
-    .map(([field]) => `Invalid ${field}`);
-
-  return { isValid: errors.length === 0, errors };
-};
-
 export function CartProvider({ children }) {
+  const { data: session } = useSession();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [lastSync, setLastSync] = useState(null);
-  const { data: session } = useSession();
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Get storage key based on user session
-  const getStorageKey = useCallback(() => {
-    return session?.user?.email ? `${CART_CONFIG.STORAGE_KEY_PREFIX}${session.user.email}` : null;
+  // Fetch cart from server on mount and when session changes
+  const fetchCart = useCallback(async () => {
+    if (!session) {
+      setCartItems([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/cart');
+      if (!response.ok) throw new Error('Failed to fetch cart');
+      const { cart } = await response.json();
+      setCartItems(cart || []);
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+      toast.error('Failed to load your cart');
+    } finally {
+      setLoading(false);
+    }
   }, [session]);
 
-  // Persist cart data with error handling and versioning
-  const persistCart = useCallback(async (items) => {
-    const storageKey = getStorageKey();
-    if (!storageKey) return;
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart]);
 
+  // Sync cart with server
+  const syncCart = useCallback(async (newCart) => {
+    if (!session || isSyncing) return;
+
+    setIsSyncing(true);
     try {
-      const cartData = {
-        version: CART_CONFIG.VERSION,
-        items,
-        lastSync: new Date().toISOString(),
-      };
-      localStorage.setItem(storageKey, JSON.stringify(cartData));
-      setLastSync(cartData.lastSync);
+      const response = await fetch('/api/cart', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: newCart[0]?.productId,
+          quantity: newCart[0]?.quantity
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to sync cart');
     } catch (error) {
-      console.error('Cart persistence error:', error);
-      toast.error('Failed to save cart changes');
+      console.error('Error syncing cart:', error);
+      toast.error('Failed to sync cart changes');
+    } finally {
+      setIsSyncing(false);
     }
-  }, [getStorageKey]);
+  }, [session, isSyncing]);
 
-  // Initialize cart with migration support
-  useEffect(() => {
-    const initializeCart = async () => {
-      const storageKey = getStorageKey();
-      if (!storageKey) {
-        setCartItems([]);
-        return;
-      }
-
-      try {
-        const savedCart = localStorage.getItem(storageKey);
-        if (!savedCart) {
-          setCartItems([]);
-          return;
-        }
-
-        const { version, items = [], lastSync: savedLastSync } = JSON.parse(savedCart);
-
-        // Handle version migration if needed
-        if (version !== CART_CONFIG.VERSION) {
-          console.warn('Cart version mismatch, performing migration...');
-          // Add migration logic here if needed
-        }
-
-        const validItems = items.filter(item => validateCartItem(item).isValid);
-        setCartItems(validItems);
-        setLastSync(savedLastSync);
-
-        if (validItems.length !== items.length) {
-          toast.warning('Some invalid items were removed from your cart');
-        }
-      } catch (error) {
-        console.error('Cart initialization error:', error);
-        toast.error('Error loading your cart');
-        setCartItems([]);
-      }
-    };
-
-    initializeCart();
-  }, [getStorageKey]);
-
-  // Persist cart changes with debouncing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (cartItems.length >= 0) {
-        persistCart(cartItems);
-      }
-    }, CART_CONFIG.DEBOUNCE_DELAY);
-
-    return () => clearTimeout(timeoutId);
-  }, [cartItems, persistCart]);
-
-  // Enhanced addToCart with validation and optimistic updates
-  const addToCart = useCallback(async (product, quantity = 1) => {
-    if (!session?.user?.email) {
+  // Add to cart
+  const addToCart = useCallback(async (product) => {
+    if (!session) {
       toast.error('Please sign in to add items to cart');
       return false;
     }
 
-    const validation = validateCartItem({ ...product, quantity });
-    if (!validation.isValid) {
-      toast.error(`Invalid product data: ${validation.errors.join(', ')}`);
-      return false;
-    }
-
     setLoading(true);
-
     try {
-      setCartItems(prevItems => {
-        // Check cart item limit
-        if (prevItems.length >= CART_CONFIG.MAX_CART_ITEMS) {
-          throw new Error(`Cart cannot exceed ${CART_CONFIG.MAX_CART_ITEMS} items`);
-        }
-
-        const existingItemIndex = prevItems.findIndex(item => item.id === product.id);
-        
-        if (existingItemIndex !== -1) {
-          const updatedItems = [...prevItems];
-          const currentQuantity = updatedItems[existingItemIndex].quantity;
-          const newQuantity = Math.min(currentQuantity + quantity, CART_CONFIG.MAX_QUANTITY);
-          
-          if (newQuantity === CART_CONFIG.MAX_QUANTITY) {
-            toast.warning(`Maximum quantity of ${CART_CONFIG.MAX_QUANTITY} reached`);
-          }
-          
-          updatedItems[existingItemIndex] = {
-            ...updatedItems[existingItemIndex],
-            quantity: newQuantity,
-            lastUpdated: new Date().toISOString()
-          };
-          
-          return updatedItems;
-        }
-        
-        return [...prevItems, {
-          ...product,
-          quantity: Math.min(quantity, CART_CONFIG.MAX_QUANTITY),
-          addedAt: new Date().toISOString(),
-          lastUpdated: new Date().toISOString()
-        }];
+      const response = await fetch('/api/cart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ product }),
       });
 
+      if (!response.ok) throw new Error('Failed to add to cart');
+
+      const { cart } = await response.json();
+      setCartItems(cart || []);
+      toast.success(`${product.name} added to cart`);
       return true;
     } catch (error) {
       console.error('Add to cart error:', error);
@@ -175,31 +94,29 @@ export function CartProvider({ children }) {
     }
   }, [session]);
 
-  // Enhanced updateQuantity with optimistic updates
+  // Update quantity
   const updateQuantity = useCallback(async (productId, newQuantity) => {
-    if (!session?.user?.email || !productId) return;
+    if (!session) return;
 
     setLoading(true);
     try {
-      if (newQuantity < CART_CONFIG.MIN_QUANTITY) {
+      if (newQuantity < 1) {
         await removeFromCart(productId);
         return;
       }
 
-      if (newQuantity > CART_CONFIG.MAX_QUANTITY) {
-        toast.warning(`Maximum quantity of ${CART_CONFIG.MAX_QUANTITY} reached`);
-        newQuantity = CART_CONFIG.MAX_QUANTITY;
-      }
+      const response = await fetch('/api/cart', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productId, quantity: newQuantity }),
+      });
 
-      setCartItems(prev => prev.map(item =>
-        item.id === productId
-          ? {
-              ...item,
-              quantity: newQuantity,
-              lastUpdated: new Date().toISOString()
-            }
-          : item
-      ));
+      if (!response.ok) throw new Error('Failed to update quantity');
+
+      const { cart } = await response.json();
+      setCartItems(cart || []);
     } catch (error) {
       console.error('Update quantity error:', error);
       toast.error('Failed to update quantity');
@@ -208,79 +125,74 @@ export function CartProvider({ children }) {
     }
   }, [session]);
 
-  // Enhanced removeFromCart with optimistic updates
+  // Remove from cart
   const removeFromCart = useCallback(async (productId) => {
-    if (!session?.user?.email || !productId) return;
-    
+    if (!session) return;
+
+    setLoading(true);
     try {
-      const itemToRemove = cartItems.find(item => item.id === productId);
+      const itemToRemove = cartItems.find(item => item.productId === productId);
       if (!itemToRemove) return;
 
-      setCartItems(prev => prev.filter(item => item.id !== productId));
+      const response = await fetch('/api/cart', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productId }),
+      });
+
+      if (!response.ok) throw new Error('Failed to remove from cart');
+
+      const { cart } = await response.json();
+      setCartItems(cart || []);
       toast.success(`${itemToRemove.name} removed from cart`);
     } catch (error) {
       console.error('Error removing from cart:', error);
       toast.error('Failed to remove item');
+    } finally {
+      setLoading(false);
     }
   }, [session, cartItems]);
 
-  // Memoized cart summary calculations
-  const cartSummary = useMemo(() => {
-    try {
-      const summary = cartItems.reduce((acc, item) => {
-        const itemTotal = (item.price || 0) * (item.quantity || 0);
-        const itemDiscount = (item.discount || 0) * (item.quantity || 0);
-
-        return {
-          totalItems: acc.totalItems + (item.quantity || 0),
-          subtotal: acc.subtotal + itemTotal,
-          totalDiscount: acc.totalDiscount + itemDiscount,
-          itemCount: acc.itemCount + 1
-        };
-      }, {
-        totalItems: 0,
-        subtotal: 0,
-        totalDiscount: 0,
-        itemCount: 0
-      });
-
-      return {
-        ...summary,
-        total: Math.max(0, summary.subtotal - summary.totalDiscount),
-        lastUpdated: lastSync,
-        isEmpty: summary.itemCount === 0,
-        isFull: summary.itemCount >= CART_CONFIG.MAX_CART_ITEMS
-      };
-    } catch (error) {
-      console.error('Cart summary calculation error:', error);
-      return {
-        totalItems: 0,
-        subtotal: 0,
-        totalDiscount: 0,
-        itemCount: 0,
-        total: 0,
-        lastUpdated: null,
-        isEmpty: true,
-        isFull: false
-      };
-    }
-  }, [cartItems, lastSync]);
-
-  // Clear cart with confirmation
+  // Clear cart
   const clearCart = useCallback(async () => {
-    const storageKey = getStorageKey();
-    if (!storageKey) return;
+    if (!session) return;
 
+    setLoading(true);
     try {
-      localStorage.removeItem(storageKey);
+      // Implement clear cart API if needed
       setCartItems([]);
-      setLastSync(null);
       toast.success('Cart cleared');
     } catch (error) {
       console.error('Clear cart error:', error);
       toast.error('Failed to clear cart');
+    } finally {
+      setLoading(false);
     }
-  }, [getStorageKey]);
+  }, [session]);
+
+  // Calculate cart summary
+  const getCartSummary = useCallback(() => {
+    const summary = cartItems.reduce((acc, item) => {
+      const itemTotal = item.price * item.quantity;
+      return {
+        totalItems: acc.totalItems + item.quantity,
+        subtotal: acc.subtotal + itemTotal,
+        itemCount: acc.itemCount + 1
+      };
+    }, {
+      totalItems: 0,
+      subtotal: 0,
+      itemCount: 0
+    });
+
+    return {
+      ...summary,
+      total: summary.subtotal,
+      isEmpty: summary.itemCount === 0
+    };
+  }, [cartItems]);
 
   const value = {
     cartItems,
@@ -289,10 +201,8 @@ export function CartProvider({ children }) {
     updateQuantity,
     clearCart,
     loading,
-    getCartSummary: () => cartSummary,
-    lastSync,
-    isCartFull: cartSummary.isFull,
-    isEmpty: cartSummary.isEmpty
+    getCartSummary,
+    isSyncing
   };
 
   return (

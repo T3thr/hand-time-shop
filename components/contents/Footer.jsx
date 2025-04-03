@@ -81,7 +81,7 @@ export default function Footer() {
 
         <div className="border-t border-border-primary mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-text-muted text-sm mb-4 md:mb-0">
-            © {new Date().getFullYear()} Handcrafted Treasures. All rights reserved.
+            © {new Date().getFullYear()} HandTime Shop. All rights reserved.
           </p>
           <div className="flex space-x-6">
             <a href="#" className="text-text-muted hover:text-primary text-sm">Privacy Policy</a>

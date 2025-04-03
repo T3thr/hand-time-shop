@@ -1,17 +1,24 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { useCart } from '@/context/CartContext';
 import ImageSlider from '@/components/contents/ImageSlider';
+import LearnMoreModal from '@/components/contents/LearnMoreModal';
 import { Heart, ShoppingBag, Filter, Search, X, ChevronRight } from 'lucide-react';
 import { useProducts } from '@/backend/lib/productAction';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 
 export default function Product() {
+  // Added refs for scroll functionality
+  const featuredProductsRef = useRef(null);
+  
+  // Added state for LearnMoreModal
+  const [isLearnMoreModalOpen, setIsLearnMoreModalOpen] = useState(false);
+  
   const [filters, setFilters] = useState({
     category: '',
     priceRange: '',
@@ -26,6 +33,16 @@ export default function Product() {
   const { addToCart, cartItems, getCartSummary } = useCart();
   const { products, isLoading: productsLoading, isError } = useProducts();
   const router = useRouter();
+
+  // Scroll to featured products function
+  const scrollToFeaturedProducts = () => {
+    if (featuredProductsRef.current) {
+      featuredProductsRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start' 
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -81,13 +98,13 @@ export default function Product() {
 
   const handleAddToCart = async (product, e) => {
     e.stopPropagation();
-
+  
     if (!session) {
       toast.error('Please sign in to add items to cart');
       router.push('/signin');
       return;
     }
-
+  
     try {
       const cartItem = {
         id: product._id,
@@ -97,9 +114,9 @@ export default function Product() {
         image: product.images[0]?.url || '/images/placeholder.jpg',
         category: product.categories[0] || '',
       };
-
+  
       const success = await addToCart(cartItem);
-
+  
       if (success) {
         const { totalItems, subtotal } = getCartSummary();
         toast.success(
@@ -203,6 +220,12 @@ export default function Product() {
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
+      {/* Learn More Modal */}
+      <LearnMoreModal 
+        isOpen={isLearnMoreModalOpen} 
+        onClose={() => setIsLearnMoreModalOpen(false)} 
+      />
+      
       {/* Hero Section */}
       <section className="relative h-[80vh] lg:h-[80vh] bg-gradient-to-r from-background-secondary to-primary-light dark:from-background-secondary dark:to-primary-dark">
         <div className="absolute inset-0 opacity-10">
@@ -226,6 +249,7 @@ export default function Product() {
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
+                onClick={scrollToFeaturedProducts}
                 className="btn-primary bg-primary text-text-inverted hover:bg-primary-dark transition-colors duration-200"
               >
                 Shop Now
@@ -233,6 +257,7 @@ export default function Product() {
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
+                onClick={() => setIsLearnMoreModalOpen(true)}
                 className="btn-primary bg-surface-card/10 hover:bg-surface-card/20 backdrop-blur-sm transition-colors duration-200"
               >
                 Learn More

@@ -1,3 +1,4 @@
+// context/AuthContext.js
 "use client";
 
 import axios from "axios";
@@ -23,10 +24,10 @@ export const AuthProvider = ({ children }) => {
       } else {
         setUser(null);
       }
-      setLoading(false);
     } catch (error) {
-      setLoading(false);
       console.error("Failed to fetch user data:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -43,8 +44,6 @@ export const AuthProvider = ({ children }) => {
         email, 
         password 
       });
-      setLoading(false);
-
       if (status === 201) {
         toast.success("Signup successful! Please sign in to continue.", {
           autoClose: 3000,
@@ -52,9 +51,10 @@ export const AuthProvider = ({ children }) => {
         });
       }
     } catch (error) {
-      setLoading(false);
       const errorMessage = error.response?.data?.message || "Signup failed";
       toast.error(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,7 +66,6 @@ export const AuthProvider = ({ children }) => {
         username,
         password,
       });
-      setLoading(false);
 
       if (res?.error) {
         toast.error(res.error);
@@ -75,12 +74,14 @@ export const AuthProvider = ({ children }) => {
 
       if (res?.ok) {
         await fetchUser();
+        toast.success("Login successful!");
         return { success: true };
       }
     } catch (error) {
-      setLoading(false);
       toast.error("Signin failed");
       return { success: false, message: "Signin failed" };
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -92,22 +93,24 @@ export const AuthProvider = ({ children }) => {
         username,
         password,
       });
-      setLoading(false);
 
       if (res?.error) {
-        toast.error(res.error);
-        return { success: false, message: res.error };
+        const errorMsg = res.error === "CredentialsSignin" 
+          ? "Invalid username/email or password" 
+          : res.error;
+        toast.error(errorMsg);
+        return { success: false, message: errorMsg };
       }
 
       if (res?.ok) {
         await fetchUser();
-        toast.success("Admin login successful!");
         return { success: true };
       }
     } catch (error) {
-      setLoading(false);
       toast.error("Admin signin failed");
       return { success: false, message: "Admin signin failed" };
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -116,11 +119,12 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       await nextAuthSignOut({ redirect: false });
       setUser(null);
-      setLoading(false);
+      toast.success("Logged out successfully");
       router.push("/signin");
     } catch (error) {
-      setLoading(false);
       toast.error("Logout failed");
+    } finally {
+      setLoading(false);
     }
   };
 
