@@ -94,19 +94,20 @@ export default function Product() {
 
   const handleAddToCart = async (product, e) => {
     e.stopPropagation();
-  
+
     if (status === 'unauthenticated') {
       toast.error('Please sign in to add items to cart');
       router.push('/signin');
       return;
     }
 
-    if (!session?.user?.id) {
+    // Check for either session.user.id OR session.user.lineId
+    if (!session?.user?.id && !session?.user?.lineId) {
       toast.error('Session error. Please sign in again.');
       router.push('/signin');
       return;
     }
-  
+
     try {
       const cartItem = {
         productId: product._id,
@@ -117,9 +118,9 @@ export default function Product() {
         category: product.categories[0] || '',
         quantity: 1,
       };
-  
+
       const success = await addToCart(cartItem);
-  
+
       if (success) {
         const { totalItems, subtotal } = getCartSummary();
         toast.success(

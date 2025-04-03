@@ -76,7 +76,7 @@ export default function SideBar({ isOpen, onClose }) {
       setProfile(profile);
 
       // Register LINE user via API
-      const registerResponse = await fetch('/api/line/register', {
+      const registerResponse = await fetch('/api/auth/line/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
