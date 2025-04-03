@@ -36,7 +36,7 @@ export default function SideBar({ isOpen, onClose }) {
   const { user, lineSignIn, adminSignIn, logoutUser } = useContext(AuthContext);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || user) return; // Skip if sidebar is closed or user is already authenticated
 
     const initializeLiff = async () => {
       try {
@@ -51,12 +51,13 @@ export default function SideBar({ isOpen, onClose }) {
         if (liff.isLoggedIn()) {
           const profileData = await liff.getProfile();
           setProfile(profileData);
-          // Automatically sign in if LIFF is logged in
-          await lineSignIn({
-            userId: profileData.userId,
-            displayName: profileData.displayName,
-            pictureUrl: profileData.pictureUrl,
-          });
+          if (!user) { // Only sign in if not already authenticated
+            await lineSignIn({
+              userId: profileData.userId,
+              displayName: profileData.displayName,
+              pictureUrl: profileData.pictureUrl,
+            });
+          }
         }
       } catch (error) {
         console.error("LIFF initialization error:", error);
@@ -64,7 +65,7 @@ export default function SideBar({ isOpen, onClose }) {
     };
 
     initializeLiff();
-  }, [isOpen, lineSignIn]);
+  }, [isOpen, lineSignIn, user]);
 
   const handleLineSignIn = useCallback(async () => {
     setIsLineLoading(true);

@@ -16,25 +16,14 @@ export const AuthProvider = ({ children }) => {
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  const fetchUser = useCallback(async () => {
-    try {
-      setLoading(true);
-      if (status === "authenticated" && session?.user) {
-        setUser(session.user);
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error("Failed to fetch user data:", error);
+  // Sync user state with NextAuth session
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      setUser(session.user);
+    } else if (status === "unauthenticated") {
       setUser(null);
-    } finally {
-      setLoading(false);
     }
   }, [session, status]);
-
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
 
   const signupUser = async ({ name, username, email, password }) => {
     try {
@@ -74,7 +63,6 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (res?.ok) {
-        await fetchUser();
         toast.success("Login successful!");
         return { success: true };
       }
@@ -90,7 +78,7 @@ export const AuthProvider = ({ children }) => {
     return loginUser({ username, password }); // Reuse loginUser for admin
   };
 
-  const lineSignIn = async ({ userId, displayName, pictureUrl }) => {
+  const lineSignIn = useCallback(async ({ userId, displayName, pictureUrl }) => {
     try {
       setLoading(true);
 
@@ -102,7 +90,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (registerRes.status === 201 || registerRes.status === 200) {
-        // Sign in with LINE credentials
+        // Sign in with LINE credentials via NextAuth
         const res = await nextAuthSignIn("line", {
           redirect: false,
           userId,
@@ -116,7 +104,6 @@ export const AuthProvider = ({ children }) => {
         }
 
         if (res?.ok) {
-          await fetchUser();
           toast.success("LINE login successful!");
           return { success: true };
         }
@@ -128,7 +115,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const logoutUser = async () => {
     try {
