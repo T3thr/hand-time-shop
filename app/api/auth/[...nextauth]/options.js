@@ -2,10 +2,8 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import User from "@/backend/models/User";
-import LoginActivity from "@/backend/models/LoginActivity";
 import mongodbConnect from "@/backend/lib/mongodb";
 import bcrypt from "bcryptjs";
-import mongoose from "mongoose";
 
 export const options = {
   providers: [
@@ -21,7 +19,7 @@ export const options = {
         await mongodbConnect();
 
         if (!credentials?.username || !credentials?.password) {
-          return null;
+          throw new Error("Username and password are required");
         }
 
         // Find user by username or email with role "admin"
@@ -34,26 +32,14 @@ export const options = {
         }).select("+password");
 
         if (!user) {
-          return null; // User not found or not an admin
+          throw new Error("Admin user not found");
         }
 
         // Validate password
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
         if (!isPasswordValid) {
-          return null; // Invalid password
+          throw new Error("Invalid password");
         }
-
-        // Log login activity
-        const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-        await LoginActivity.create({
-          userId: user._id,
-          email: user.email,
-          name: user.name,
-          username: user.username,
-          ipAddress,
-          role: user.role,
-          lastLogin: new Date(),
-        });
 
         // Update lastLogin in User model
         user.lastLogin = new Date();
@@ -68,7 +54,7 @@ export const options = {
       },
     }),
 
-    // LINE Provider (unchanged)
+    // LINE Provider
     CredentialsProvider({
       id: "line",
       name: "LINE",
@@ -80,25 +66,32 @@ export const options = {
       async authorize(credentials) {
         await mongodbConnect();
 
-        if (!credentials?.userId) return null;
+        if (!credentials?.userId) {
+          throw new Error("LINE user ID is required");
+        }
 
         let user = await User.findOne({ lineId: credentials.userId });
         
         if (!user) {
+          // New user - createdAt will be automatically set
           user = await User.create({
             lineId: credentials.userId,
-            name: credentials.displayName,
-            avatar: credentials.pictureUrl,
+            name: credentials.displayName || `LINE User ${credentials.userId.slice(0, 4)}`,
+            avatar: credentials.pictureUrl || null,
             role: "user",
+            lastLogin: new Date() // Set initial lastLogin
           });
+        } else {
+          // Existing user - update profile and lastLogin
+          if (credentials.displayName && user.name !== credentials.displayName) {
+            user.name = credentials.displayName;
+          }
+          if (credentials.pictureUrl && user.avatar !== credentials.pictureUrl) {
+            user.avatar = credentials.pictureUrl;
+          }
+          user.lastLogin = new Date();
+          await user.save();
         }
-
-        await LoginActivity.create({
-          userId: user._id,
-          name: user.name,
-          role: user.role,
-          lastLogin: new Date(),
-        });
 
         return {
           id: user._id.toString(),
@@ -127,7 +120,7 @@ export const options = {
     },
   },
   pages: {
-    signIn: process.env.NEXT_PUBLIC_LIFF_URL,
+    signIn: "/",
     error: "/auth/error",
   },
   secret: process.env.NEXTAUTH_SECRET,

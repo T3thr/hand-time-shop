@@ -1,34 +1,40 @@
 'use client'
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { ArrowUp, LogIn, Menu } from 'lucide-react';
+import { Menu, LogIn, X } from 'lucide-react';
 
 export default function StartGuide() {
   const [showGuide, setShowGuide] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
   const { data: session } = useSession();
   const [idleTimer, setIdleTimer] = useState(null);
 
-  // Check if it's the first visit
+  // Check if it's the first visit or if user dismissed the guide
   useEffect(() => {
     const hasVisited = localStorage.getItem('hasVisitedBefore');
+    const guideDismissed = localStorage.getItem('guideDismissed');
     
     if (!hasVisited && !session) {
       // First time visit and not logged in
       setTimeout(() => {
         setShowGuide(true);
-      }, 1000); // Small delay for better UX after page load
+      }, 1500); // Slightly longer delay for better UX after page load
       
       // Mark as visited
       localStorage.setItem('hasVisitedBefore', 'true');
+    } else if (!guideDismissed && !session) {
+      // User hasn't explicitly dismissed the guide and is not logged in
+      const timer = setTimeout(() => {
+        setShowGuide(true);
+      }, 3000);
+      setIdleTimer(timer);
     }
   }, [session]);
 
-  // Reset idle timer when user interacts
+  // Reset idle timer when user interacts with the page
   useEffect(() => {
     const handleInteraction = () => {
-      setHasInteracted(true);
-      setShowGuide(false);
+      // Don't show guide after interaction if user has dismissed it
+      if (localStorage.getItem('guideDismissed') === 'true') return;
       
       // Clear existing timer
       if (idleTimer) clearTimeout(idleTimer);
@@ -37,7 +43,7 @@ export default function StartGuide() {
       if (!session) {
         const timer = setTimeout(() => {
           setShowGuide(true);
-        }, 5000); // Show guide after 5 seconds of inactivity
+        }, 10000); // Extended to 10 seconds to be less intrusive
         setIdleTimer(timer);
       }
     };
@@ -48,14 +54,6 @@ export default function StartGuide() {
       window.addEventListener(event, handleInteraction);
     });
 
-    // Initial idle timer if user isn't logged in
-    if (!session && hasInteracted) {
-      const timer = setTimeout(() => {
-        setShowGuide(true);
-      }, 5000);
-      setIdleTimer(timer);
-    }
-
     // Cleanup
     return () => {
       if (idleTimer) clearTimeout(idleTimer);
@@ -63,45 +61,60 @@ export default function StartGuide() {
         window.removeEventListener(event, handleInteraction);
       });
     };
-  }, [session, hasInteracted, idleTimer]);
+  }, [session, idleTimer]);
 
   // Hide guide when user is logged in
   useEffect(() => {
     if (session) {
       setShowGuide(false);
       if (idleTimer) clearTimeout(idleTimer);
+      // Reset guideDismissed when user logs in
+      localStorage.removeItem('guideDismissed');
     }
   }, [session, idleTimer]);
+
+  const handleDismiss = () => {
+    setShowGuide(false);
+    // Set guideDismissed to true so it won't show until next sign-in cycle
+    localStorage.setItem('guideDismissed', 'true');
+    if (idleTimer) clearTimeout(idleTimer);
+  };
 
   if (!showGuide || session) return null;
 
   return (
-    <div className="fixed z-30 top-16 left-4 flex flex-col items-center animate-bounce-gentle">
-      {/* Arrow pointing up to hamburger menu */}
-      <div className="relative flex flex-col items-center">
-        
-        {/* Guide bubble with animation */}
-        <div className="mt-2 bg-surface-card border border-primary p-4 rounded-lg shadow-lg max-w-xs relative">
-          <div className="absolute -top-2 left-4 w-4 h-4 rotate-45 bg-surface-card border-t border-l border-primary"></div>
+    <div className="fixed z-30 top-16 left-4 transition-all duration-300 ease-in-out">
+      {/* Guide bubble with improved animations */}
+      <div className="relative flex flex-col items-start">
+        <div className="mt-2 bg-surface-card border border-primary/70 p-4 rounded-lg shadow-lg max-w-xs relative animate-slideUp">
+          <div className="absolute -top-2 left-4 w-4 h-4 rotate-45 bg-surface-card border-t border-l border-primary/70"></div>
+          
+          <button 
+            onClick={handleDismiss}
+            className="absolute -top-2 -right-2 bg-surface-card text-text-secondary hover:text-error p-1 rounded-full border border-border-primary shadow-sm transition-colors duration-200"
+            aria-label="Close guide"
+          >
+            <X className="h-4 w-4" />
+          </button>
           
           <div className="flex items-center space-x-3">
-            <div className="bg-primary/10 p-2 rounded-full">
+            <div className="bg-primary/15 p-2 rounded-full">
               <Menu className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="font-medium text-foreground">Click here to open menu</h3>
-              <p className="text-sm text-text-secondary mt-1">Login to access your account</p>
+              <h3 className="font-medium text-foreground">Click menu to get started</h3>
+              <p className="text-sm text-text-secondary mt-1">Access account features and more</p>
             </div>
           </div>
           
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <div className="flex items-center gap-1 text-primary">
+          <div className="mt-4 flex items-center justify-between text-sm">
+            <div className="flex items-center gap-1.5 text-primary font-medium">
               <LogIn className="h-4 w-4" />
-              <span>Sign in for benefits!</span>
+              <span>Sign in for full benefits</span>
             </div>
             <button 
-              onClick={() => setShowGuide(false)} 
-              className="text-text-secondary hover:text-text-primary"
+              onClick={handleDismiss}
+              className="px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors duration-200"
             >
               Got it
             </button>

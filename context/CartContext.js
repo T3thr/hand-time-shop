@@ -36,65 +36,37 @@ export function CartProvider({ children }) {
     fetchCart();
   }, [fetchCart]);
 
-  // Sync cart with server
-  const syncCart = useCallback(async (newCart) => {
-    if (!session || isSyncing) return;
-
-    setIsSyncing(true);
-    try {
-      const response = await fetch('/api/cart', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productId: newCart[0]?.productId,
-          quantity: newCart[0]?.quantity
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to sync cart');
-    } catch (error) {
-      console.error('Error syncing cart:', error);
-      toast.error('Failed to sync cart changes');
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [session, isSyncing]);
-
-  // Add to cart
-  const addToCart = useCallback(async (product) => {
-    if (!session) {
-      toast.error('Please sign in to add items to cart');
-      return false;
-    }
+  // Remove from cart - Moved before updateQuantity to avoid reference error
+  const removeFromCart = useCallback(async (productId) => {
+    if (!session) return;
 
     setLoading(true);
     try {
+      const itemToRemove = cartItems.find(item => item.productId === productId);
+      if (!itemToRemove) return;
+
       const response = await fetch('/api/cart', {
-        method: 'POST',
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ product }),
+        body: JSON.stringify({ productId }),
       });
 
-      if (!response.ok) throw new Error('Failed to add to cart');
+      if (!response.ok) throw new Error('Failed to remove from cart');
 
       const { cart } = await response.json();
       setCartItems(cart || []);
-      toast.success(`${product.name} added to cart`);
-      return true;
+      toast.success(`${itemToRemove.name} removed from cart`);
     } catch (error) {
-      console.error('Add to cart error:', error);
-      toast.error(error.message || 'Failed to add item to cart');
-      return false;
+      console.error('Error removing from cart:', error);
+      toast.error('Failed to remove item');
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, cartItems]);
 
-  // Update quantity
+  // Update quantity - Now can safely reference removeFromCart
   const updateQuantity = useCallback(async (productId, newQuantity) => {
     if (!session) return;
 
@@ -123,33 +95,72 @@ export function CartProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, removeFromCart]);
 
-  // Remove from cart
-  const removeFromCart = useCallback(async (productId) => {
-    if (!session) return;
+  // Add to cart - Fixed to properly handle existing items
+  const addToCart = useCallback(async (product) => {
+    if (!session) {
+      toast.error('Please sign in to add items to cart');
+      return false;
+    }
 
     setLoading(true);
     try {
-      const itemToRemove = cartItems.find(item => item.productId === productId);
-      if (!itemToRemove) return;
+      // Ensure we're using a consistent ID field
+      const productId = product.productId || product.id;
+      
+      // Check if product already exists in cart
+      const existingItem = cartItems.find(item => item.productId === productId);
+      
+      if (existingItem) {
+        // If product exists, update its quantity
+        const newQuantity = existingItem.quantity + 1;
+        
+        const response = await fetch('/api/cart', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            productId: productId,
+            quantity: newQuantity
+          }),
+        });
 
-      const response = await fetch('/api/cart', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ productId }),
-      });
+        if (!response.ok) throw new Error('Failed to update cart');
+        
+        const { cart } = await response.json();
+        setCartItems(cart || []);
+        toast.success(`${product.name} quantity updated`);
+      } else {
+        // If product is new, add it to cart
+        const response = await fetch('/api/cart', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            product: {
+              id: productId,
+              name: product.name,
+              price: product.price,
+              image: product.image || '/images/placeholder.jpg',
+              variant: product.variant || {}
+            }
+          }),
+        });
 
-      if (!response.ok) throw new Error('Failed to remove from cart');
-
-      const { cart } = await response.json();
-      setCartItems(cart || []);
-      toast.success(`${itemToRemove.name} removed from cart`);
+        if (!response.ok) throw new Error('Failed to add to cart');
+        
+        const { cart } = await response.json();
+        setCartItems(cart || []);
+      }
+      
+      return true;
     } catch (error) {
-      console.error('Error removing from cart:', error);
-      toast.error('Failed to remove item');
+      console.error('Cart operation error:', error);
+      toast.error(error.message || 'Failed to modify cart');
+      return false;
     } finally {
       setLoading(false);
     }

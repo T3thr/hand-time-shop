@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useCallback, useContext } from "react";
+import React, { useState, useCallback, useContext, useEffect } from "react";
 import Link from "next/link";
 import { useSession, signOut, signIn } from "next-auth/react";
 import { 
@@ -12,7 +12,13 @@ import AuthContext from "@/context/AuthContext";
 import SigninModal from "@/components/auth/SigninModal";
 import SignoutModal from "@/components/auth/SignoutModal";
 import { FaLine } from 'react-icons/fa';
-import liff from '@line/liff';
+import dynamic from 'next/dynamic';
+
+// Dynamically import liff to avoid SSR issues
+const LiffProvider = dynamic(
+  () => import('@line/liff').then((mod) => mod.default),
+  { ssr: false }
+);
 
 const sidebarLinks = [
   { href: "/", icon: Home, label: "Home" },
@@ -31,53 +37,63 @@ export default function SideBar({ isOpen, onClose }) {
   const { data: session } = useSession();
   const { adminSignIn } = useContext(AuthContext);
 
-  // Initialize LIFF
-  React.useEffect(() => {
+  // Initialize LIFF only when sidebar opens
+  useEffect(() => {
+    if (!isOpen) return;
+
     const initializeLiff = async () => {
       try {
-        if (!process.env.NEXT_PUBLIC_LIFF_ID) return;
-        
+        if (!process.env.NEXT_PUBLIC_LIFF_ID) {
+          console.warn("LIFF ID is not defined in environment variables");
+          return;
+        }
+
+        const liff = (await import('@line/liff')).default;
         await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+        
         if (liff.isLoggedIn()) {
           const profileData = await liff.getProfile();
           setProfile(profileData);
         }
       } catch (error) {
         console.error("LIFF initialization error:", error);
+        // Don't show toast here to avoid spamming users
       }
     };
 
-    if (typeof window !== 'undefined') {
-      initializeLiff();
-    }
-  }, []);
+    initializeLiff();
+  }, [isOpen]);
 
   const handleLineSignIn = useCallback(async () => {
+    setIsLineLoading(true);
     try {
-      setIsLineLoading(true);
+      const liff = (await import('@line/liff')).default;
+      
       if (!liff.isLoggedIn()) {
         await liff.login();
-        const profile = await liff.getProfile();
-        setProfile(profile);
-        
-        await signIn("line", {
-          callbackUrl: "/",
-          userId: profile.userId,
-          displayName: profile.displayName,
-          pictureUrl: profile.pictureUrl
-        });
-        return;
+        return; // Will redirect, no need for further processing
       }
 
       const profile = await liff.getProfile();
-      await signIn("line", {
-        callbackUrl: "/",
+      setProfile(profile);
+
+      // Trigger NextAuth sign-in with LINE credentials
+      const result = await signIn("line", {
+        redirect: false,
         userId: profile.userId,
         displayName: profile.displayName,
         pictureUrl: profile.pictureUrl
       });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
     } catch (error) {
-      toast.error("Failed to initiate LINE login");
+      console.error("LINE login error:", error);
+      // Only show toast for non-redirect errors
+      if (!error.message.includes("redirect")) {
+        toast.error("LINE login failed. Please try again.");
+      }
     } finally {
       setIsLineLoading(false);
     }
@@ -89,19 +105,26 @@ export default function SideBar({ isOpen, onClose }) {
 
   const handleLogout = useCallback(async () => {
     try {
+      // Sign out from NextAuth first
       if (session) {
         await signOut({ callbackUrl: '/' });
       }
       
-      if (typeof liff !== 'undefined' && liff.isLoggedIn()) {
-        await liff.logout();
+      // Then sign out from LIFF if available
+      try {
+        const liff = (await import('@line/liff')).default;
+        if (liff?.isLoggedIn?.()) {
+          await liff.logout();
+        }
+      } catch (liffError) {
+        console.warn("LIFF logout error:", liffError);
       }
       
       setProfile(null);
       setIsSignoutModalOpen(false);
     } catch (error) {
-      toast.error("Failed to sign out");
       console.error("Logout error:", error);
+      toast.error("Failed to sign out completely");
     }
   }, [session]);
 

@@ -122,7 +122,7 @@ const ProductForm = ({ product, categories, onSubmit, formTitle, buttonText, onC
         </div>
         
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text-secondary">Price ($)</label>
+          <label className="text-sm font-medium text-text-secondary">Price (฿)</label>
           <input
             type="number"
             name="price"

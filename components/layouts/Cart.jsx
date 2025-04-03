@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import LineCheckoutModal from './LineCheckoutModal';
@@ -11,6 +12,7 @@ import LineCheckoutModal from './LineCheckoutModal';
 const Cart = ({ isOpen, onClose }) => {
   const { cartItems, updateQuantity, removeFromCart, getCartSummary } = useCart();
   const { subtotal, totalItems } = getCartSummary();
+  const { data: session, status } = useSession();
   const [isLineCheckoutModalOpen, setIsLineCheckoutModalOpen] = useState(false);
 
   const slideVariants = {
@@ -28,6 +30,10 @@ const Cart = ({ isOpen, onClose }) => {
 
   const handleProceedToCheckout = (e) => {
     e.preventDefault();
+    if (status === 'unauthenticated') {
+      window.location.href = '/signin';
+      return;
+    }
     setIsLineCheckoutModalOpen(true);
   };
 
@@ -65,6 +71,7 @@ const Cart = ({ isOpen, onClose }) => {
                 onClose={onClose}
                 onCheckout={handleProceedToCheckout}
                 isMobile={true}
+                session={session}
               />
             </motion.div>
 
@@ -85,13 +92,13 @@ const Cart = ({ isOpen, onClose }) => {
                 onClose={onClose}
                 onCheckout={handleProceedToCheckout}
                 isMobile={false}
+                session={session}
               />
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      {/* LINE Checkout Modal */}
       <LineCheckoutModal 
         isOpen={isLineCheckoutModalOpen} 
         onClose={handleCloseLineCheckoutModal} 
@@ -108,7 +115,8 @@ const CartContent = ({
   totalItems, 
   onClose, 
   onCheckout,
-  isMobile 
+  isMobile,
+  session,
 }) => {
   return (
     <div className="flex flex-col h-full bg-surface-card transition-colors duration-300">

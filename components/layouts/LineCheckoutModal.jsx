@@ -4,6 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowRight, ExternalLink, Check } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { toast } from 'react-toastify';
 import Image from 'next/image';
 import liff from '@line/liff';
 
@@ -11,67 +12,78 @@ const LineCheckoutModal = ({ isOpen, onClose }) => {
   const { cartItems, getCartSummary, clearCart } = useCart();
   const { subtotal, totalItems } = getCartSummary();
   const [isRedirecting, setIsRedirecting] = useState(false);
-  
-  // Format order message for LINE OA
+
+  // Format order message for LINE OA or OpenChat
   const formatOrderMessage = useCallback(() => {
     let message = "🛒 New Order 🛒\n\n";
     
-    // Add items
     cartItems.forEach((item, index) => {
       message += `${index + 1}. ${item.name}\n`;
       message += `   ${item.quantity} x ฿${item.price.toFixed(2)} = ฿${(item.quantity * item.price).toFixed(2)}\n`;
     });
     
-    // Add summary
     message += "\n------------------------\n";
     message += `Subtotal: ฿${subtotal.toFixed(2)}\n`;
     message += `Total Items: ${totalItems}\n`;
-    message += "\nThank you for your order!";
+    message += "\nThank you for your order! Please provide your shipping details.";
     
     return message;
   }, [cartItems, subtotal, totalItems]);
-  
-  // Handle LINE checkout
+
+  // Handle LINE checkout with LIFF
   const handleLineCheckout = useCallback(async () => {
+    setIsRedirecting(true);
+
     try {
-      setIsRedirecting(true);
-      
-      // Format the message
       const orderMessage = formatOrderMessage();
-      
-      // Initialize LIFF if needed
-      if (!liff.isInClient() && !liff.isLoggedIn()) {
-        if (!process.env.NEXT_PUBLIC_LIFF_ID) {
-          throw new Error("LIFF ID is not set");
-        }
-        
-        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+
+      // Check environment variables
+      if (!process.env.NEXT_PUBLIC_LIFF_ID) {
+        throw new Error("LIFF ID is not set in environment variables");
       }
-      
-      // Get LINE OA ID from env variable
-      const lineOaId = process.env.NEXT_PUBLIC_LINE_OA_ID;
-      
-      if (!lineOaId) {
-        throw new Error("LINE OA ID is not set");
+
+      // Initialize LIFF
+      await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+
+      // Ensure user is logged in to LINE
+      if (!liff.isLoggedIn()) {
+        await liff.login(); // Prompt user to log in if not already
+        return; // After login, this function will re-run due to state change
       }
-      
-      // Clear cart before redirecting
+
+      // Send the order message directly via LIFF
+      await liff.sendMessages([
+        {
+          type: 'text',
+          text: orderMessage,
+        },
+      ]);
+
+      // Clear the cart after successful message send
       clearCart();
-      
-      // Create the LINE chat URL with prefilled message
-      const encodedMessage = encodeURIComponent(orderMessage);
-      const lineUrl = `https://line.me/R/oaMessage/${lineOaId}/?${encodedMessage}`;
-      
-      // Redirect to LINE OA
-      window.location.href = lineUrl;
-      
+
+      // Notify user of success
+      toast.success("Order sent successfully to LINE! We'll get back to you soon.");
+
+      // Close the modal
+      setIsRedirecting(false);
+      onClose();
+
+      // Optionally close LIFF window if running in LIFF context
+      if (liff.isInClient()) {
+        liff.closeWindow();
+      } else {
+        // Redirect to a thank-you page or home
+        window.location.href = '/thank-you';
+      }
+
     } catch (error) {
       console.error("LINE checkout error:", error);
       setIsRedirecting(false);
-      // You may want to add toast notification here
+      toast.error(`Failed to send order to LINE: ${error.message}`);
     }
-  }, [formatOrderMessage, clearCart]);
-  
+  }, [formatOrderMessage, clearCart, onClose]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -107,7 +119,7 @@ const LineCheckoutModal = ({ isOpen, onClose }) => {
                 <div className="flex-1 overflow-y-auto p-4">
                   <div className="mb-4">
                     <p className="text-sm text-text-secondary mb-2">
-                      You'll be redirected to LINE to confirm your order. The following message will be sent:
+                      Your order will be sent to our LINE Official Account for processing. Here's what we'll send:
                     </p>
                     
                     <div className="bg-background-secondary p-4 rounded-lg text-sm font-mono whitespace-pre-wrap">
@@ -158,7 +170,7 @@ const LineCheckoutModal = ({ isOpen, onClose }) => {
                     {isRedirecting ? (
                       <>
                         <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                        <span>Redirecting to LINE...</span>
+                        <span>Processing...</span>
                       </>
                     ) : (
                       <>

@@ -169,15 +169,36 @@ body {
   @apply block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 dark:text-white;
 }
 
-@keyframes bounceGentle {
-  0%, 100% {
-    transform: translateY(0);
+/* Additional animations for the StartGuide component */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  50% {
-    transform: translateY(-5px);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.animate-bounce-gentle {
-  animation: bounceGentle 2s infinite ease-in-out;
+.animate-slideUp {
+  animation: slideUp 0.4s ease-out;
+}
+
+/* Remove the bounce animation as it can be distracting */
+/* Instead, we'll use a subtle pulse animation for the menu icon */
+@keyframes softPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pulse-soft {
+  animation: softPulse 2s infinite ease-in-out;
 }

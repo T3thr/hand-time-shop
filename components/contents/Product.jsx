@@ -1,3 +1,4 @@
+// components/contents/Product.jsx
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
@@ -13,12 +14,8 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 
 export default function Product() {
-  // Added refs for scroll functionality
   const featuredProductsRef = useRef(null);
-  
-  // Added state for LearnMoreModal
   const [isLearnMoreModalOpen, setIsLearnMoreModalOpen] = useState(false);
-  
   const [filters, setFilters] = useState({
     category: '',
     priceRange: '',
@@ -29,12 +26,11 @@ export default function Product() {
   const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { data: session } = useSession();
+  const { data: session, status } = useSession(); // Track session status
   const { addToCart, cartItems, getCartSummary } = useCart();
   const { products, isLoading: productsLoading, isError } = useProducts();
   const router = useRouter();
 
-  // Scroll to featured products function
   const scrollToFeaturedProducts = () => {
     if (featuredProductsRef.current) {
       featuredProductsRef.current.scrollIntoView({ 
@@ -99,7 +95,7 @@ export default function Product() {
   const handleAddToCart = async (product, e) => {
     e.stopPropagation();
   
-    if (!session) {
+    if (status === 'unauthenticated') { // Check session status instead of just session
       toast.error('Please sign in to add items to cart');
       router.push('/signin');
       return;
@@ -136,7 +132,7 @@ export default function Product() {
               </div>
             </div>
             <div className="mt-2 text-sm text-text-secondary">
-              Cart total: ${subtotal.toFixed(2)} ({totalItems} items)
+              Cart total: ฿{subtotal.toFixed(2)} ({totalItems} items)
             </div>
           </div>
         );
@@ -159,7 +155,7 @@ export default function Product() {
   const handleWishlist = async (productId, e) => {
     e.stopPropagation();
 
-    if (!session) {
+    if (status === 'unauthenticated') { // Check status for wishlist too
       toast.error('Please sign in to manage wishlist');
       return;
     }
@@ -176,10 +172,10 @@ export default function Product() {
 
   const priceRanges = [
     { label: 'All Prices', value: '' },
-    { label: 'Under $25', value: '0-25' },
-    { label: '$25 - $50', value: '25-50' },
-    { label: '$50 - $100', value: '50-100' },
-    { label: 'Over $100', value: '100-10000' },
+    { label: 'Under ฿25', value: '0-25' },
+    { label: '฿25 - ฿50', value: '25-50' },
+    { label: '฿50 - ฿100', value: '50-100' },
+    { label: 'Over ฿100', value: '100-10000' },
   ];
 
   const sortOptions = [
@@ -220,13 +216,11 @@ export default function Product() {
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
-      {/* Learn More Modal */}
       <LearnMoreModal 
         isOpen={isLearnMoreModalOpen} 
         onClose={() => setIsLearnMoreModalOpen(false)} 
       />
       
-      {/* Hero Section */}
       <section className="relative h-[80vh] lg:h-[80vh] bg-gradient-to-r from-background-secondary to-primary-light dark:from-background-secondary dark:to-primary-dark">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0 bg-[url('/images/pattern.svg')] bg-repeat bg-center opacity-20"></div>
@@ -270,7 +264,6 @@ export default function Product() {
 
       <ImageSlider />
 
-      {/* Categories Section */}
       <section className="py-12 md:py-20 bg-background">
         <div className="container mx-auto max-w-7xl px-4 lg:px-8">
           <motion.div
@@ -316,7 +309,6 @@ export default function Product() {
         </div>
       </section>
 
-      {/* Filter Bar - Mobile Friendly */}
       <div className="sticky top-16 z-20 bg-background/80 backdrop-blur-md border-y border-border-primary">
         <div className="container mx-auto max-w-7xl px-4 lg:px-8 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -335,7 +327,7 @@ export default function Product() {
                   placeholder="Search products..."
                   value={filters.searchQuery}
                   onChange={(e) => setFilters((prev) => ({ ...prev, searchQuery: e.target.value }))}
-                  className="pl-9 pr-3 py-1.5 text-black rounded-full border border-border-primary bg-surface-card/80 focus:outline-none focus:ring-2 focus:ring-primary text-sm w-full sm:w-auto"
+                  className="pl-9 pr-3 py-1.5 text-foreground rounded-full border border-border-primary bg-surface-card/80 focus:outline-none focus:ring-2 focus:ring-primary text-sm w-full sm:w-auto"
                 />
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text-muted" />
                 {filters.searchQuery && (
@@ -353,7 +345,7 @@ export default function Product() {
               <select
                 value={filters.sortBy}
                 onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value }))}
-                className="py-1.5 pl-3 pr-8 rounded-full border border-border-primary text-black bg-surface-card/80 focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none"
+                className="py-1.5 pl-3 pr-8 rounded-full border border-border-primary text-foreground bg-surface-card/80 focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none"
               >
                 {sortOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -453,7 +445,6 @@ export default function Product() {
         </div>
       </div>
 
-      {/* Featured Products */}
       <section className="py-12 md:py-16 bg-gradient-to-b from-background to-background-secondary/50 dark:from-background dark:to-background-secondary/20">
         <div className="container mx-auto max-w-7xl px-4 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -545,10 +536,10 @@ export default function Product() {
                         {product.name}
                       </h3>
                       <div className="flex flex-col items-end">
-                        <span className="text-primary font-semibold text-lg">${product.price.toFixed(2)}</span>
+                        <span className="text-primary font-semibold text-lg">฿{product.price.toFixed(2)}</span>
                         {product.compareAtPrice && product.compareAtPrice > product.price && (
                           <span className="text-text-muted text-sm line-through">
-                            ${product.compareAtPrice.toFixed(2)}
+                            ฿{product.compareAtPrice.toFixed(2)}
                           </span>
                         )}
                       </div>

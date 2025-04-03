@@ -50,33 +50,68 @@ export async function POST(request) {
       );
     }
 
-    const user = await User.findOneAndUpdate(
-      { 
-        $or: [
-          { email: session.user?.email },
-          { lineId: session.user?.sub }
-        ]
-      },
-      {
-        $addToSet: {
-          cart: {
-            productId: product.id,
-            name: product.name,
-            price: product.price,
-            quantity: 1,
-            image: product.image || '/images/placeholder.jpg',
-            variant: product.variant || {}
+    // Check if the product already exists in the cart
+    const existingUser = await User.findOne({
+      $or: [
+        { email: session.user?.email },
+        { lineId: session.user?.sub }
+      ],
+      'cart.productId': product.id
+    });
+
+    if (existingUser) {
+      // If product exists, update the quantity instead of adding new item
+      const existingItem = existingUser.cart.find(item => item.productId === product.id);
+      const newQuantity = existingItem ? existingItem.quantity + 1 : 1;
+      
+      const user = await User.findOneAndUpdate(
+        { 
+          $or: [
+            { email: session.user?.email },
+            { lineId: session.user?.sub }
+          ],
+          'cart.productId': product.id
+        },
+        {
+          $set: {
+            'cart.$.quantity': newQuantity,
+            'cart.$.lastUpdated': new Date()
           }
-        }
-      },
-      { new: true }
-    ).select('cart');
+        },
+        { new: true }
+      ).select('cart');
+      
+      return NextResponse.json({ cart: user.cart });
+    } else {
+      // If product doesn't exist, add it to the cart
+      const user = await User.findOneAndUpdate(
+        { 
+          $or: [
+            { email: session.user?.email },
+            { lineId: session.user?.sub }
+          ]
+        },
+        {
+          $push: {
+            cart: {
+              productId: product.id,
+              name: product.name,
+              price: product.price,
+              quantity: 1,
+              image: product.image || '/images/placeholder.jpg',
+              variant: product.variant || {}
+            }
+          }
+        },
+        { new: true }
+      ).select('cart');
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      if (!user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+
+      return NextResponse.json({ cart: user.cart });
     }
-
-    return NextResponse.json({ cart: user.cart });
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to add to cart', details: error.message },
