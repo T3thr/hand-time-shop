@@ -3,9 +3,9 @@
 
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
-import { signIn as nextAuthSignIn, signOut as nextAuthSignOut, getSession } from "next-auth/react";
+import { signIn as nextAuthSignIn, signOut as nextAuthSignOut, useSession } from "next-auth/react";
 
 const AuthContext = createContext();
 
@@ -14,26 +14,27 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       setLoading(true);
-      const session = await getSession();
-      if (session) {
+      if (status === "authenticated" && session?.user) {
         setUser(session.user);
       } else {
         setUser(null);
       }
     } catch (error) {
       console.error("Failed to fetch user data:", error);
+      setUser(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [session, status]);
 
   useEffect(() => {
     fetchUser();
-  }, []);
+  }, [fetchUser]);
 
   const signupUser = async ({ name, username, email, password }) => {
     try {
@@ -121,6 +122,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
     } catch (error) {
+      console.error("LINE signin error:", error);
       toast.error("LINE signin failed");
       return { success: false, message: "LINE signin failed" };
     } finally {

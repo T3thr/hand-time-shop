@@ -2,7 +2,6 @@
 'use client';
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
 import {
   Menu, User, X, Home, Tag, Sparkles, LogOut, ChevronRight,
   Settings, Shield, Copy, Eye, EyeOff, Heart
@@ -34,7 +33,6 @@ export default function SideBar({ isOpen, onClose }) {
   const [isLineLoading, setIsLineLoading] = useState(false);
   const [profile, setProfile] = useState(null);
   const [showUserId, setShowUserId] = useState(false);
-  const { data: session } = useSession();
   const { user, lineSignIn, adminSignIn, logoutUser } = useContext(AuthContext);
 
   useEffect(() => {
@@ -53,6 +51,12 @@ export default function SideBar({ isOpen, onClose }) {
         if (liff.isLoggedIn()) {
           const profileData = await liff.getProfile();
           setProfile(profileData);
+          // Automatically sign in if LIFF is logged in
+          await lineSignIn({
+            userId: profileData.userId,
+            displayName: profileData.displayName,
+            pictureUrl: profileData.pictureUrl,
+          });
         }
       } catch (error) {
         console.error("LIFF initialization error:", error);
@@ -60,7 +64,7 @@ export default function SideBar({ isOpen, onClose }) {
     };
 
     initializeLiff();
-  }, [isOpen]);
+  }, [isOpen, lineSignIn]);
 
   const handleLineSignIn = useCallback(async () => {
     setIsLineLoading(true);

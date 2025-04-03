@@ -67,12 +67,13 @@ export const options = {
         let user = await User.findOne({ lineId: credentials.userId });
 
         if (!user) {
-          // New LINE user registration will be handled via API route
           throw new Error("LINE user not found. Please register first.");
         }
 
         user.lastLogin = new Date();
         await user.save();
+
+        console.log("LINE authorize success:", { id: user._id.toString(), name: user.name, lineId: user.lineId });
 
         return {
           id: user._id.toString(),
@@ -93,6 +94,7 @@ export const options = {
         token.lineId = user.lineId || null;
         token.name = user.name;
         token.image = user.image;
+        console.log("JWT callback:", token);
       }
       return token;
     },
@@ -103,6 +105,7 @@ export const options = {
         session.user.lineId = token.lineId;
         session.user.name = token.name;
         session.user.image = token.image;
+        console.log("Session callback:", session);
       }
       return session;
     },
