@@ -30,7 +30,6 @@ const SigninModal = ({ isOpen, onClose, adminSignIn }) => {
     try {
       const result = await adminSignIn({ username, password });
       if (result.success) {
-        toast.success("Admin login successful!");
         onClose();
       } else {
         toast.error(result.message || "Login failed. Please check your credentials.");

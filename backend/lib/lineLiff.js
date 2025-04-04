@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 let liffObject = null;
 
@@ -7,24 +8,14 @@ export async function initializeLiff() {
   if (typeof window === 'undefined') return null;
   
   try {
-    // Only import LIFF on client side
     const liff = (await import('@line/liff')).default;
     
-    // Check if already initialized
     if (liff.isInitialized()) return liff;
     
-    // Get LIFF ID from environment variable
     const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+    if (!liffId) throw new Error("LIFF ID is not defined");
     
-    if (!liffId) {
-      console.error("LIFF ID is not defined in environment variables");
-      return null;
-    }
-    
-    // Initialize LIFF
     await liff.init({ liffId });
-    console.log("LIFF initialized successfully");
-    
     liffObject = liff;
     return liff;
   } catch (error) {
@@ -39,9 +30,9 @@ export function useLiff() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
+  const { data: session } = useSession();
 
   useEffect(() => {
-    // Set liff if already initialized
     if (liffObject) {
       setLiff(liffObject);
       setIsReady(true);
@@ -49,7 +40,6 @@ export function useLiff() {
       return;
     }
     
-    // Initialize LIFF
     initializeLiff()
       .then((liffInstance) => {
         if (liffInstance) {
@@ -57,7 +47,6 @@ export function useLiff() {
           setIsReady(true);
           setIsLoggedIn(liffInstance.isLoggedIn());
           
-          // Get profile if logged in
           if (liffInstance.isLoggedIn()) {
             liffInstance.getProfile()
               .then(setProfile)
@@ -65,16 +54,8 @@ export function useLiff() {
           }
         }
       })
-      .catch(err => {
-        console.error("Error initializing LIFF:", err);
-        setError(err);
-      });
-  }, []);
+      .catch(err => setError(err));
+  }, [session]);
 
   return { liff, isReady, isLoggedIn, profile, error };
 }
-
-export default {
-  initializeLiff,
-  useLiff
-};

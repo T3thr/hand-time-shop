@@ -43,40 +43,33 @@ export const options = {
       },
     }),
 
-    // LINE OAuth Provider - Updated for 2025
+    // LINE OAuth Provider - Updated for client-side integration
     CredentialsProvider({
       id: "line",
       name: "LINE",
       credentials: {
         idToken: { label: "ID Token", type: "text" },
-        accessToken: { label: "Access Token", type: "text" },
-        profile: { label: "Profile", type: "text" },
+        userId: { label: "User ID", type: "text" },
+        displayName: { label: "Display Name", type: "text" },
+        pictureUrl: { label: "Picture URL", type: "text" },
       },
       async authorize(credentials) {
         try {
-          if (!credentials?.profile) {
-            throw new Error("LINE profile data is required");
-          }
-
-          // Parse the profile data
-          const profileData = JSON.parse(credentials.profile);
-          const { userId, displayName, pictureUrl } = profileData;
-
-          if (!userId) {
-            throw new Error("LINE user ID is missing");
+          if (!credentials?.userId) {
+            throw new Error("LINE user ID is required");
           }
 
           // Connect to database
           await mongodbConnect();
 
           // Find or create user
-          let user = await User.findOne({ lineId: userId });
+          let user = await User.findOne({ lineId: credentials.userId });
 
           if (!user) {
             user = await User.create({
-              lineId: userId,
-              name: displayName || `LINE User ${userId.slice(0, 4)}`,
-              avatar: pictureUrl || null,
+              lineId: credentials.userId,
+              name: credentials.displayName || `LINE User ${credentials.userId.slice(0, 4)}`,
+              avatar: credentials.pictureUrl || null,
               role: "user",
               email: null,
               username: null,
@@ -98,8 +91,14 @@ export const options = {
               },
             });
           } else {
-            // Update last login
+            // Update last login and profile if needed
             user.lastLogin = new Date();
+            if (credentials.pictureUrl && user.avatar !== credentials.pictureUrl) {
+              user.avatar = credentials.pictureUrl;
+            }
+            if (credentials.displayName && user.name !== credentials.displayName) {
+              user.name = credentials.displayName;
+            }
             await user.save();
           }
 
@@ -107,9 +106,9 @@ export const options = {
             id: user._id.toString(),
             name: user.name,
             email: user.email || null,
-            image: user.avatar || pictureUrl,
+            image: user.avatar || credentials.pictureUrl,
             role: user.role,
-            lineId: userId,
+            lineId: credentials.userId,
           };
         } catch (error) {
           console.error("LINE authorization error:", error);

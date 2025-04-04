@@ -6,7 +6,6 @@ import { ThemeProvider } from '@/context/Theme';
 import ChangeTheme from '@/components/layouts/ChangeTheme';
 import { cookies } from 'next/headers';
 import { GlobalProvider } from "./GlobalProvider";
-import LiffInitializer from '@/components/LiffInitializer';
 
 const inter = Inter({ subsets: ['latin'] });
 export const metadata = {
@@ -28,7 +27,6 @@ export default async function RootLayout({ children }) {
       <body className={inter.className}>
         <ThemeProvider initialTheme={initialTheme}>
           <GlobalProvider>
-            <LiffInitializer/>
             {children}
             <ChangeTheme />
           </GlobalProvider>
