@@ -3,36 +3,60 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import User from "@/backend/models/User";
 import mongodbConnect from "@/backend/lib/mongodb";
 import bcrypt from "bcryptjs";
-import LineProvider from "next-auth/providers/line";
-import liff from '@line/liff';
 
 export const options = {
   providers: [
-    // LINE Credentials Provider Integration
+    // LINE Provider
     CredentialsProvider({
       id: "line",
       name: "LINE",
-      type: "oauth",
-      version: "2.1",
-      clientId: process.env.LINE_CHANNEL_ID, // Your LINE Channel ID
-      clientSecret: process.env.LINE_CHANNEL_SECRET, // Your LINE Channel Secret
-      authorization: {
-        url: "https://access.line.me/oauth2/v2.1/authorize",
-        params: {
-          response_type: "code",
-          scope: "profile openid",
-          nonce: "unique_nonce",
-        },
+      credentials: {
+        userId: { label: "User ID", type: "text" },
+        displayName: { label: "Display Name", type: "text" },
+        pictureUrl: { label: "Picture URL", type: "text" },
       },
-      token: "https://api.line.me/oauth2/v2.1/token",
-      userinfo: "https://api.line.me/v2/profile",
-      async profile(profile) {
-        return {
-          id: profile.userId,
-          name: profile.displayName,
-          email: null, // Email is not provided in LINE profile by default
-          image: profile.pictureUrl,
-        };
+      async authorize(credentials) {
+        try {
+          await mongodbConnect();
+
+          if (!credentials?.userId) {
+            throw new Error("LINE User ID is required");
+          }
+
+          // Find or create the user
+          let user = await User.findOne({ lineId: credentials.userId });
+
+          if (!user) {
+            // Create new user if not found
+            user = await User.create({
+              lineId: credentials.userId,
+              name: credentials.displayName || `LINE User ${credentials.userId.slice(0, 4)}`,
+              avatar: credentials.pictureUrl || null,
+              role: "user",
+              isVerified: true,
+              lastLogin: new Date(),
+            });
+          } else {
+            // Update last login time and picture if available
+            user.lastLogin = new Date();
+            if (!user.avatar && credentials.pictureUrl) {
+              user.avatar = credentials.pictureUrl;
+            }
+            await user.save();
+          }
+
+          return {
+            id: user._id.toString(),
+            name: user.name,
+            image: user.avatar,
+            lineId: user.lineId,
+            role: user.role,
+            provider: "line",
+          };
+        } catch (error) {
+          console.error("LINE authorize error:", error);
+          throw new Error("Authentication failed");
+        }
       },
     }),
 
@@ -69,23 +93,19 @@ export const options = {
           name: user.name,
           email: user.email,
           role: user.role,
+          image: user.avatar,
+          provider: "credentials",
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
-      // Handling JWT for LINE login
-      if (account?.provider === "line" && user) {
-        token.provider = account.provider;
-        token.lineId = user.id;
-      }
-      // Handling JWT for Admin login
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.name = user.name;
-        token.image = user.image;
+        token.lineId = user.lineId;
+        token.provider = user.provider;
       }
       return token;
     },
@@ -96,50 +116,14 @@ export const options = {
           id: token.id,
           role: token.role,
           lineId: token.lineId,
-          name: token.name,
-          image: token.image,
           provider: token.provider,
         };
       }
       return session;
     },
-    async signIn({ user, account, profile }) {
-      // LINE sign-in logic
-      if (account.provider === "line") {
-        try {
-          await mongodbConnect();
-
-          let existingUser = await User.findOne({ lineId: user.id });
-
-          if (!existingUser) {
-            existingUser = await User.create({
-              lineId: user.id,
-              name: profile.displayName || `LINE User ${user.id.slice(0, 4)}`,
-              avatar: profile.pictureUrl || null,
-              role: "user",
-              email: profile.email || null,
-              isVerified: true,
-              lastLogin: new Date(),
-            });
-          } else {
-            existingUser.lastLogin = new Date();
-            await existingUser.save();
-          }
-
-          user.id = existingUser._id.toString();
-          user.role = existingUser.role;
-          user.name = existingUser.name;
-          user.image = existingUser.avatar;
-        } catch (error) {
-          console.error("LINE signIn error:", error);
-          return false;
-        }
-      }
-      return true;
-    },
   },
   pages: {
-    signIn: process.env.NEXT_PUBLIC_LIFF_URL || "/auth/signin",
+    signIn: "/auth/signin",
     error: "/auth/error",
   },
   secret: process.env.NEXTAUTH_SECRET,

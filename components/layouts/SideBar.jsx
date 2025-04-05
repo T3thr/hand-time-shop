@@ -1,4 +1,3 @@
-// components/layouts/SideBar.jsx
 'use client';
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import Link from "next/link";
@@ -14,11 +13,6 @@ import SignoutModal from "@/components/auth/SignoutModal";
 import { FaLine } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 
-const LiffProvider = dynamic(
-  () => import('@line/liff').then((mod) => mod.default),
-  { ssr: false }
-);
-
 const sidebarLinks = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/categories", icon: Tag, label: "Categories" },
@@ -31,32 +25,42 @@ export default function SideBar({ isOpen, onClose }) {
   const [isSigninModalOpen, setIsSigninModalOpen] = useState(false);
   const [isSignoutModalOpen, setIsSignoutModalOpen] = useState(false);
   const [isLineLoading, setIsLineLoading] = useState(false);
-  const [profile, setProfile] = useState(null);
+  const [lineProfile, setLineProfile] = useState(null);
   const [showUserId, setShowUserId] = useState(false);
   const { user, lineSignIn, adminSignIn, logoutUser } = useContext(AuthContext);
 
+  // LIFF initialization
   useEffect(() => {
-    if (!isOpen || user) return; // Skip if sidebar is closed or user is already authenticated
+    if (!isOpen) return;
 
+    let isMounted = true;
     const initializeLiff = async () => {
       try {
+        // Skip if LIFF ID is not defined
         if (!process.env.NEXT_PUBLIC_LIFF_ID) {
           console.warn("LIFF ID is not defined in environment variables");
           return;
         }
 
-        const liff = (await import('@line/liff')).default;
-        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+        // Dynamically import LIFF
+        const { default: liff } = await import('@line/liff');
+        
+        // Check if LIFF is already initialized
+        if (!liff.isInClient() && !liff.isLoggedIn()) {
+          await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+        }
 
+        // Check if user is already logged in with LINE
         if (liff.isLoggedIn()) {
-          const profileData = await liff.getProfile();
-          setProfile(profileData);
-          if (!user) { // Only sign in if not already authenticated
-            await lineSignIn({
-              userId: profileData.userId,
-              displayName: profileData.displayName,
-              pictureUrl: profileData.pictureUrl,
-            });
+          const profile = await liff.getProfile();
+          
+          if (isMounted) {
+            setLineProfile(profile);
+            
+            // If no user session but LINE is logged in, sign in with LINE
+            if (!user && profile) {
+              await lineSignIn(profile);
+            }
           }
         }
       } catch (error) {
@@ -65,33 +69,41 @@ export default function SideBar({ isOpen, onClose }) {
     };
 
     initializeLiff();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, lineSignIn, user]);
 
   const handleLineSignIn = useCallback(async () => {
     setIsLineLoading(true);
     try {
-      const liff = (await import('@line/liff')).default;
+      const { default: liff } = await import('@line/liff');
+      
+      // Initialize LIFF if not already done
+      if (!liff.isInClient() && !liff._liffId) {
+        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+      }
 
+      // If not logged in, perform LINE login
       if (!liff.isLoggedIn()) {
-        await liff.login();
+        liff.login();
         return;
       }
 
+      // Get profile and perform sign-in
       const profile = await liff.getProfile();
-      setProfile(profile);
-
-      const result = await lineSignIn({
-        userId: profile.userId,
-        displayName: profile.displayName,
-        pictureUrl: profile.pictureUrl,
-      });
-
+      setLineProfile(profile);
+      
+      const result = await lineSignIn(profile);
+      
       if (!result.success) {
         throw new Error(result.message);
       }
     } catch (error) {
       console.error("LINE login error:", error);
-      if (!error.message.includes("redirect")) {
+      // Don't show error for redirects
+      if (!error.message?.includes("redirect")) {
         toast.error("LINE login failed. Please try again.");
       }
     } finally {
@@ -105,17 +117,22 @@ export default function SideBar({ isOpen, onClose }) {
 
   const handleLogout = useCallback(async () => {
     try {
-      await logoutUser();
-      try {
-        const liff = (await import('@line/liff')).default;
-        if (liff?.isLoggedIn?.()) {
-          await liff.logout();
+      const result = await logoutUser();
+      
+      if (result.success) {
+        // Also logout from LINE if available
+        try {
+          const { default: liff } = await import('@line/liff');
+          if (liff.isLoggedIn()) {
+            await liff.logout();
+          }
+        } catch (liffError) {
+          console.warn("LIFF logout error:", liffError);
         }
-      } catch (liffError) {
-        console.warn("LIFF logout error:", liffError);
+        
+        setLineProfile(null);
+        setIsSignoutModalOpen(false);
       }
-      setProfile(null);
-      setIsSignoutModalOpen(false);
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Failed to sign out completely");
@@ -123,11 +140,11 @@ export default function SideBar({ isOpen, onClose }) {
   }, [logoutUser]);
 
   const copyUserId = useCallback(() => {
-    if (profile?.userId) {
-      navigator.clipboard.writeText(profile.userId);
+    if (lineProfile?.userId) {
+      navigator.clipboard.writeText(lineProfile.userId);
       toast.success("User ID copied to clipboard");
     }
-  }, [profile]);
+  }, [lineProfile]);
 
   const getUserAvatar = useCallback(() => {
     if (user?.role === 'admin') {
@@ -135,17 +152,6 @@ export default function SideBar({ isOpen, onClose }) {
         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
           <Shield className="h-5 w-5 text-blue-600" />
         </div>
-      );
-    }
-
-    if (profile?.pictureUrl) {
-      return (
-        <img
-          src={profile.pictureUrl}
-          alt="Profile"
-          className="h-10 w-10 rounded-full object-cover"
-          loading="lazy"
-        />
       );
     }
 
@@ -160,12 +166,23 @@ export default function SideBar({ isOpen, onClose }) {
       );
     }
 
+    if (lineProfile?.pictureUrl) {
+      return (
+        <img
+          src={lineProfile.pictureUrl}
+          alt="Profile"
+          className="h-10 w-10 rounded-full object-cover"
+          loading="lazy"
+        />
+      );
+    }
+
     return (
       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
         <User className="h-6 w-6 text-primary" />
       </div>
     );
-  }, [user, profile]);
+  }, [user, lineProfile]);
 
   const getUserRoleBadge = useCallback(() => {
     if (!user?.role) return null;
@@ -185,10 +202,10 @@ export default function SideBar({ isOpen, onClose }) {
   const renderUserInfo = useCallback(() => {
     if (user?.email) {
       return user.email;
-    } else if (profile?.userId) {
+    } else if (user?.lineId || lineProfile?.userId) {
       return (
         <div className="flex flex-col space-y-2">
-          <span className="truncate">{profile?.displayName || 'LINE User'}</span>
+          <span className="truncate">{user?.name || lineProfile?.displayName || 'LINE User'}</span>
           <div className="flex items-center space-x-1">
             <button
               onClick={() => setShowUserId(!showUserId)}
@@ -200,7 +217,7 @@ export default function SideBar({ isOpen, onClose }) {
             {showUserId && (
               <div className="flex items-center space-x-1 max-w-12 overflow-hidden">
                 <span className="text-xs bg-container px-2 py-1 rounded truncate">
-                  {profile.userId}
+                  {user?.lineId || lineProfile?.userId}
                 </span>
                 <button
                   onClick={copyUserId}
@@ -216,7 +233,7 @@ export default function SideBar({ isOpen, onClose }) {
       );
     }
     return "Sign in to access more features";
-  }, [user, profile, showUserId, copyUserId]);
+  }, [user, lineProfile, showUserId, copyUserId]);
 
   return (
     <>
@@ -245,7 +262,7 @@ export default function SideBar({ isOpen, onClose }) {
                       <div className="min-w-0">
                         <div className="flex items-center space-x-2">
                           <h2 className="font-semibold text-foreground truncate">
-                            {user?.name || profile?.displayName || "Guest"}
+                            {user?.name || lineProfile?.displayName || "Guest"}
                           </h2>
                           {getUserRoleBadge()}
                         </div>

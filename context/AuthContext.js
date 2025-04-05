@@ -76,10 +76,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const lineSignIn = useCallback(async () => {
+  const lineSignIn = useCallback(async (lineProfile) => {
     try {
       setLoading(true);
-      const res = await nextAuthSignIn("line", { redirect: false });
+      
+      if (!lineProfile || !lineProfile.userId) {
+        throw new Error("LINE profile data is required");
+      }
+      
+      const res = await nextAuthSignIn("line", {
+        redirect: false,
+        userId: lineProfile.userId,
+        displayName: lineProfile.displayName,
+        pictureUrl: lineProfile.pictureUrl,
+      });
       
       if (res?.error) {
         toast.error(res.error);
@@ -109,8 +119,10 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       toast.success("Logged out successfully");
       router.push("/");
+      return { success: true };
     } catch (error) {
       toast.error("Logout failed");
+      return { success: false, message: "Logout failed" };
     } finally {
       setLoading(false);
     }
