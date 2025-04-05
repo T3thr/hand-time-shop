@@ -230,7 +230,11 @@ const UserSchema = new Schema({
     type: String,
     validate: {
       validator: function(v) {
-        return /^(https?:\/\/).+\.(jpg|jpeg|png|webp|gif)$/.test(v);
+        // Allow URLs that start with http/https and point to known image-hosting domains or have image extensions
+        return /^(https?:\/\/).+/.test(v) && (
+          /\.(jpg|jpeg|png|webp|gif)$/i.test(v) || 
+          /profile\.line-scdn\.net/.test(v)
+        );
       },
       message: props => `${props.value} is not a valid image URL!`
     }

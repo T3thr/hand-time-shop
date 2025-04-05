@@ -159,29 +159,30 @@ export const AuthProvider = ({ children }) => {
   const logoutUser = async () => {
     try {
       setLoading(true);
-      
+  
       // Logout from NextAuth
       await nextAuthSignOut({ redirect: false });
-      
-      // Also logout from LINE if available
-      if (typeof window !== 'undefined' && lineProfile) {
+  
+      // Logout from LINE if LIFF is available
+      if (typeof window !== 'undefined') {
         try {
           const { default: liff } = await import('@line/liff');
-          if (liff.isLoggedIn()) {
+          if (liff.isInClient() && liff.isLoggedIn()) {
             liff.logout();
           }
         } catch (liffError) {
           console.warn("LIFF logout error:", liffError);
+          // Don't fail the logout process if LIFF logout fails
         }
       }
-      
+  
       // Clear state
       setUser(null);
       setLineProfile(null);
-      
+  
       toast.success("Logged out successfully");
       router.push("/");
-      
+  
       return { success: true };
     } catch (error) {
       console.error("Logout error:", error);
