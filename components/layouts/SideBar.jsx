@@ -27,7 +27,7 @@ export default function SideBar({ isOpen, onClose }) {
   const [isLineLoading, setIsLineLoading] = useState(false);
   const [lineProfile, setLineProfile] = useState(null);
   const [showUserId, setShowUserId] = useState(false);
-  const { user, lineSignIn, adminSignIn, logoutUser } = useContext(AuthContext);
+  const { user, lineSignIn, adminSignIn, logoutUser, status } = useContext(AuthContext);
 
   // LIFF initialization
   useEffect(() => {
@@ -45,8 +45,8 @@ export default function SideBar({ isOpen, onClose }) {
         // Dynamically import LIFF
         const { default: liff } = await import('@line/liff');
         
-        // Check if LIFF is already initialized
-        if (!liff.isInClient() && !liff.isLoggedIn()) {
+        // Initialize LIFF if not already done
+        if (!liff.isInClient() && !liff._liffId) {
           await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
         }
 
@@ -58,7 +58,7 @@ export default function SideBar({ isOpen, onClose }) {
             setLineProfile(profile);
             
             // If no user session but LINE is logged in, sign in with LINE
-            if (!user && profile) {
+            if (status !== "authenticated" && profile) {
               await lineSignIn(profile);
             }
           }
@@ -73,7 +73,7 @@ export default function SideBar({ isOpen, onClose }) {
     return () => {
       isMounted = false;
     };
-  }, [isOpen, lineSignIn, user]);
+  }, [isOpen, lineSignIn, status]);
 
   const handleLineSignIn = useCallback(async () => {
     setIsLineLoading(true);
@@ -120,31 +120,23 @@ export default function SideBar({ isOpen, onClose }) {
       const result = await logoutUser();
       
       if (result.success) {
-        // Also logout from LINE if available
-        try {
-          const { default: liff } = await import('@line/liff');
-          if (liff.isLoggedIn()) {
-            await liff.logout();
-          }
-        } catch (liffError) {
-          console.warn("LIFF logout error:", liffError);
-        }
-        
         setLineProfile(null);
         setIsSignoutModalOpen(false);
+        onClose();
       }
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Failed to sign out completely");
     }
-  }, [logoutUser]);
+  }, [logoutUser, onClose]);
 
   const copyUserId = useCallback(() => {
-    if (lineProfile?.userId) {
-      navigator.clipboard.writeText(lineProfile.userId);
+    const id = user?.lineId || lineProfile?.userId;
+    if (id) {
+      navigator.clipboard.writeText(id);
       toast.success("User ID copied to clipboard");
     }
-  }, [lineProfile]);
+  }, [user, lineProfile]);
 
   const getUserAvatar = useCallback(() => {
     if (user?.role === 'admin') {
@@ -198,6 +190,9 @@ export default function SideBar({ isOpen, onClose }) {
       </span>
     );
   }, [user]);
+
+  // Check if user is authenticated - combined check for both auth methods
+  const isAuthenticated = status === "authenticated" || !!user;
 
   const renderUserInfo = useCallback(() => {
     if (user?.email) {
@@ -299,7 +294,7 @@ export default function SideBar({ isOpen, onClose }) {
                 </div>
 
                 <div className="p-4 border-t border-border-primary">
-                  {user ? (
+                  {isAuthenticated ? (
                     <button
                       onClick={handleLogoutConfirmation}
                       className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-container hover:bg-container/80 transition-colors"

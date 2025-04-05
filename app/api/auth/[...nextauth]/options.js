@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 
 export const options = {
   providers: [
-    // LINE Provider
+    // LINE Credentials Provider
     CredentialsProvider({
       id: "line",
       name: "LINE",
@@ -18,16 +18,16 @@ export const options = {
       async authorize(credentials) {
         try {
           await mongodbConnect();
-
+          
           if (!credentials?.userId) {
-            throw new Error("LINE User ID is required");
+            throw new Error("LINE user ID is required");
           }
-
+          
           // Find or create the user
           let user = await User.findOne({ lineId: credentials.userId });
-
+          
           if (!user) {
-            // Create new user if not found
+            // Create new user for LINE login
             user = await User.create({
               lineId: credentials.userId,
               name: credentials.displayName || `LINE User ${credentials.userId.slice(0, 4)}`,
@@ -37,25 +37,32 @@ export const options = {
               lastLogin: new Date(),
             });
           } else {
-            // Update last login time and picture if available
+            // Update existing user info
             user.lastLogin = new Date();
-            if (!user.avatar && credentials.pictureUrl) {
+            
+            // Always update these fields with the latest values from LINE
+            if (credentials.pictureUrl) {
               user.avatar = credentials.pictureUrl;
             }
+            
+            if (credentials.displayName) {
+              user.name = credentials.displayName;
+            }
+            
             await user.save();
           }
-
+          
           return {
             id: user._id.toString(),
             name: user.name,
+            email: user.email || null,
             image: user.avatar,
             lineId: user.lineId,
             role: user.role,
-            provider: "line",
           };
         } catch (error) {
-          console.error("LINE authorize error:", error);
-          throw new Error("Authentication failed");
+          console.error("LINE authorization error:", error);
+          throw new Error(error.message || "Authentication failed");
         }
       },
     }),
@@ -69,43 +76,49 @@ export const options = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        await mongodbConnect();
+        try {
+          await mongodbConnect();
 
-        if (!credentials?.username || !credentials?.password) {
-          throw new Error("Username and password are required");
+          if (!credentials?.username || !credentials?.password) {
+            throw new Error("Username and password are required");
+          }
+
+          const user = await User.findOne({
+            $or: [{ username: credentials.username }, { email: credentials.username }],
+            role: "admin",
+          }).select("+password");
+
+          if (!user) throw new Error("Admin user not found");
+
+          const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+          if (!isPasswordValid) throw new Error("Invalid password");
+
+          user.lastLogin = new Date();
+          await user.save();
+
+          return {
+            id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            image: user.avatar,
+          };
+        } catch (error) {
+          console.error("Admin authorization error:", error);
+          throw error;
         }
-
-        const user = await User.findOne({
-          $or: [{ username: credentials.username }, { email: credentials.username }],
-          role: "admin",
-        }).select("+password");
-
-        if (!user) throw new Error("Admin user not found");
-
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isPasswordValid) throw new Error("Invalid password");
-
-        user.lastLogin = new Date();
-        await user.save();
-
-        return {
-          id: user._id.toString(),
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          image: user.avatar,
-          provider: "credentials",
-        };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.lineId = user.lineId;
-        token.provider = user.provider;
+        token.name = user.name;
+        token.image = user.image;
+        token.provider = account?.provider || (user.lineId ? "line" : "admin-credentials");
       }
       return token;
     },
@@ -116,6 +129,8 @@ export const options = {
           id: token.id,
           role: token.role,
           lineId: token.lineId,
+          name: token.name,
+          image: token.image,
           provider: token.provider,
         };
       }
@@ -130,7 +145,7 @@ export const options = {
   debug: process.env.NODE_ENV === "development",
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 };
 

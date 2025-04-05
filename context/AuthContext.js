@@ -62,6 +62,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       if (res?.ok) {
+        // Force session update to ensure it's immediately available
         await update();
         toast.success("Admin login successful!");
         return { success: true };
@@ -84,6 +85,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error("LINE profile data is required");
       }
       
+      // Use NextAuth's credentials provider for LINE
       const res = await nextAuthSignIn("line", {
         redirect: false,
         userId: lineProfile.userId,
@@ -97,7 +99,20 @@ export const AuthProvider = ({ children }) => {
       }
       
       if (res?.ok) {
+        // Force session update to ensure it's available immediately
         await update();
+        
+        // Temporary user state for immediate UI update
+        // This will be overridden by the session data once it's available
+        setUser({
+          id: lineProfile.userId,
+          name: lineProfile.displayName,
+          image: lineProfile.pictureUrl,
+          lineId: lineProfile.userId,
+          role: "user",
+          provider: "line"
+        });
+        
         toast.success("LINE login successful!");
         return { success: true };
       }
@@ -115,14 +130,29 @@ export const AuthProvider = ({ children }) => {
   const logoutUser = async () => {
     try {
       setLoading(true);
+      
+      // Attempt LINE logout if LINE SDK is available
+      try {
+        const { default: liff } = await import('@line/liff');
+        if (liff.isLoggedIn()) {
+          await liff.logout();
+        }
+      } catch (liffError) {
+        console.warn("LIFF logout error:", liffError);
+        // Continue with NextAuth logout even if LIFF logout fails
+      }
+      
+      // NextAuth logout
       await nextAuthSignOut({ redirect: false });
       setUser(null);
       toast.success("Logged out successfully");
       router.push("/");
+      
       return { success: true };
     } catch (error) {
+      console.error("Logout error:", error);
       toast.error("Logout failed");
-      return { success: false, message: "Logout failed" };
+      return { success: false, message: error.message || "Logout failed" };
     } finally {
       setLoading(false);
     }
