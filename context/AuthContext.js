@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
           const profile = await liff.getProfile();
           setLineProfile(profile);
           if (status === "unauthenticated") {
-            await registerLineUser(profile); // Register before signing in
+            await registerLineUser(profile);
             await lineSignIn(profile);
           }
         }
@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }) => {
         userId: profile.userId,
         displayName: profile.displayName,
         pictureUrl: profile.pictureUrl,
-        idToken: profile.idToken || null, // Optional, if you use it for verification
+        idToken: profile.idToken || null,
       });
 
       if (res.data.success) {

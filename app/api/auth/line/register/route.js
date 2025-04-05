@@ -13,24 +13,22 @@ export async function POST(request) {
       return NextResponse.json({ error: "LINE user ID is required" }, { status: 400 });
     }
 
-    // Check for existing user by lineId
     let user = await User.findOne({ lineId: userId });
 
     if (!user) {
-      // Create new LINE user
       user = new User({
         lineId: userId,
         name: displayName || `LINE User ${userId.slice(0, 4)}`,
-        avatar: pictureUrl || null,
+        avatar: pictureUrl && /^(https?:\/\/).+/.test(pictureUrl) ? pictureUrl : null, // Validate URL or set null
         role: "user",
         email: null,
         username: null,
-        password: null, // No password for LINE users
+        password: null,
         cart: [],
         wishlist: [],
-        orders: [], // Empty array, defaults will handle orderId when orders are added
+        orders: [], // Empty array, orderId defaults will apply when orders are added
         addresses: [],
-        isVerified: true, // LINE users are auto-verified
+        isVerified: true,
         lastLogin: new Date(),
         preferences: {
           theme: "system",
@@ -44,10 +42,13 @@ export async function POST(request) {
       });
       await user.save();
     } else {
-      // Update existing user
       user.lastLogin = new Date();
-      if (!user.avatar && pictureUrl) user.avatar = pictureUrl;
-      if (!user.name && displayName) user.name = displayName;
+      if (!user.avatar && pictureUrl && /^(https?:\/\/).+/.test(pictureUrl)) {
+        user.avatar = pictureUrl;
+      }
+      if (!user.name && displayName) {
+        user.name = displayName;
+      }
       await user.save();
     }
 
@@ -63,12 +64,6 @@ export async function POST(request) {
     }, { status: 200 });
   } catch (error) {
     console.error("LINE registration error:", error);
-    if (error.code === 11000) {
-      return NextResponse.json(
-        { error: "Duplicate LINE user ID or other unique field detected", details: error.message },
-        { status: 409 }
-      );
-    }
     return NextResponse.json(
       { error: "Failed to register LINE user", details: error.message },
       { status: 500 }

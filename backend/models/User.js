@@ -94,8 +94,8 @@ const OrderItemSchema = new Schema({
 const OrderSchema = new Schema({
   orderId: { 
     type: String, 
-    sparse: true, // Allows multiple nulls, no unique constraint
-    default: () => `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` // Auto-generate unique ID
+    sparse: true, // Allows multiple nulls
+    default: () => `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` // Auto-generate unique ID per order
   },
   items: [OrderItemSchema],
   totalAmount: { 
@@ -231,11 +231,11 @@ const UserSchema = new Schema({
     type: String,
     validate: {
       validator: function(v) {
-        if (!v) return true;
-        return /^(https?:\/\/).+/.test(v);
+        return v === null || /^(https?:\/\/).+/.test(v); // Allow null explicitly
       },
       message: props => `${props.value} is not a valid image URL!`
-    }
+    },
+    default: null
   },
   cart: [CartItemSchema],
   wishlist: [WishlistItemSchema],
@@ -295,7 +295,7 @@ UserSchema.virtual("wishlistCount").get(function() {
   return this.wishlist.length;
 });
 
-// Ensure no unique index is enforced on orders.orderId beyond what's needed
+// Remove any unique index on orders.orderId
 UserSchema.index({ "orders.orderId": 1 }, { sparse: true, unique: false });
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
