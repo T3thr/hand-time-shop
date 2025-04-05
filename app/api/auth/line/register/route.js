@@ -28,7 +28,7 @@ export async function POST(request) {
         password: null, // No password for LINE users
         cart: [],
         wishlist: [],
-        orders: [], // Empty array, let default `orderId` generator handle uniqueness
+        orders: [], // Empty array, defaults will handle orderId when orders are added
         addresses: [],
         isVerified: true, // LINE users are auto-verified
         lastLogin: new Date(),
@@ -65,7 +65,7 @@ export async function POST(request) {
     console.error("LINE registration error:", error);
     if (error.code === 11000) {
       return NextResponse.json(
-        { error: "Duplicate LINE user ID detected", details: error.message },
+        { error: "Duplicate LINE user ID or other unique field detected", details: error.message },
         { status: 409 }
       );
     }

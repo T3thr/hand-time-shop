@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        const { default: liff } = await import('@line/liff');
+        const { default: liff } = await import("@line/liff");
         await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
 
         if (liff.isLoggedIn()) {
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       initializeLiff();
     }
   }, [status]);
@@ -123,18 +123,18 @@ export const AuthProvider = ({ children }) => {
         username,
         password,
       });
-      
+
       if (res?.error) {
         toast.error(res.error);
         return { success: false, message: res.error };
       }
-      
+
       if (res?.ok) {
         await update();
         toast.success("Admin login successful!");
         return { success: true };
       }
-      
+
       return { success: false, message: "Unknown error occurred" };
     } catch (error) {
       toast.error("Signin failed");
@@ -184,8 +184,8 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       await nextAuthSignOut({ redirect: false });
 
-      if (typeof window !== 'undefined') {
-        const { default: liff } = await import('@line/liff');
+      if (typeof window !== "undefined") {
+        const { default: liff } = await import("@line/liff");
         if (liff.isLoggedIn()) {
           liff.logout();
         }
@@ -220,7 +220,7 @@ export const AuthProvider = ({ children }) => {
         adminSignIn,
         lineSignIn,
         logoutUser,
-        registerLineUser, // Added new function
+        registerLineUser,
         setUser,
         setLineProfile,
         clearErrors,

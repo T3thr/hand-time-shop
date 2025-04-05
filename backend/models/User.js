@@ -1,3 +1,4 @@
+// backend/models/User.js
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -93,7 +94,7 @@ const OrderItemSchema = new Schema({
 const OrderSchema = new Schema({
   orderId: { 
     type: String, 
-    sparse: true, // Allows multiple null values, remove unique constraint if not needed
+    sparse: true, // Allows multiple nulls, no unique constraint
     default: () => `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` // Auto-generate unique ID
   },
   items: [OrderItemSchema],
@@ -104,11 +105,11 @@ const OrderSchema = new Schema({
   },
   shippingAddress: {
     type: Schema.Types.ObjectId,
-    ref: 'Address'
+    ref: "Address"
   },
   paymentMethod: {
     type: String,
-    enum: ['credit_card', 'paypal', 'bank_transfer', 'cash_on_delivery'],
+    enum: ["credit_card", "paypal", "bank_transfer", "cash_on_delivery"],
     required: true
   },
   status: { 
@@ -178,8 +179,8 @@ const AddressSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ['home', 'work', 'other'],
-    default: 'home'
+    enum: ["home", "work", "other"],
+    default: "home"
   }
 }, { _id: true });
 
@@ -230,9 +231,8 @@ const UserSchema = new Schema({
     type: String,
     validate: {
       validator: function(v) {
-        // Make validation optional if empty, or check for valid URL
         if (!v) return true;
-        return /^(https?:\/\/).+/.test(v); // Simplified to accept any HTTPS URL
+        return /^(https?:\/\/).+/.test(v);
       },
       message: props => `${props.value} is not a valid image URL!`
     }
@@ -251,8 +251,8 @@ const UserSchema = new Schema({
   preferences: {
     theme: {
       type: String,
-      enum: ['light', 'dark', 'system'],
-      default: 'system'
+      enum: ["light", "dark", "system"],
+      default: "system"
     },
     notifications: {
       email: { type: Boolean, default: true },
@@ -276,24 +276,27 @@ const UserSchema = new Schema({
   }
 });
 
-UserSchema.pre("save", async function (next) {
+UserSchema.pre("save", async function(next) {
   if (this.isModified("password") && this.password) {
     this.password = await bcrypt.hash(this.password, 10);
   }
   next();
 });
 
-UserSchema.methods.comparePassword = async function (candidatePassword) {
+UserSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-UserSchema.virtual('cartCount').get(function() {
+UserSchema.virtual("cartCount").get(function() {
   return this.cart.reduce((sum, item) => sum + item.quantity, 0);
 });
 
-UserSchema.virtual('wishlistCount').get(function() {
+UserSchema.virtual("wishlistCount").get(function() {
   return this.wishlist.length;
 });
+
+// Ensure no unique index is enforced on orders.orderId beyond what's needed
+UserSchema.index({ "orders.orderId": 1 }, { sparse: true, unique: false });
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
 export default User;
