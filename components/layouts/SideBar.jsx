@@ -25,63 +25,26 @@ export default function SideBar({ isOpen, onClose }) {
   const [isSigninModalOpen, setIsSigninModalOpen] = useState(false);
   const [isSignoutModalOpen, setIsSignoutModalOpen] = useState(false);
   const [isLineLoading, setIsLineLoading] = useState(false);
-  const [lineProfile, setLineProfile] = useState(null);
   const [showUserId, setShowUserId] = useState(false);
-  const { user, lineSignIn, adminSignIn, logoutUser, status } = useContext(AuthContext);
+  
+  const { 
+    user, 
+    lineProfile, 
+    lineSignIn, 
+    adminSignIn, 
+    logoutUser, 
+    setLineProfile,
+    status 
+  } = useContext(AuthContext);
 
-  // LIFF initialization
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let isMounted = true;
-    const initializeLiff = async () => {
-      try {
-        // Skip if LIFF ID is not defined
-        if (!process.env.NEXT_PUBLIC_LIFF_ID) {
-          console.warn("LIFF ID is not defined in environment variables");
-          return;
-        }
-
-        // Dynamically import LIFF
-        const { default: liff } = await import('@line/liff');
-        
-        // Initialize LIFF if not already done
-        if (!liff.isInClient() && !liff._liffId) {
-          await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
-        }
-
-        // Check if user is already logged in with LINE
-        if (liff.isLoggedIn()) {
-          const profile = await liff.getProfile();
-          
-          if (isMounted) {
-            setLineProfile(profile);
-            
-            // If no user session but LINE is logged in, sign in with LINE
-            if (status !== "authenticated" && profile) {
-              await lineSignIn(profile);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("LIFF initialization error:", error);
-      }
-    };
-
-    initializeLiff();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, lineSignIn, status]);
-
+  // Line login handler
   const handleLineSignIn = useCallback(async () => {
     setIsLineLoading(true);
     try {
       const { default: liff } = await import('@line/liff');
       
       // Initialize LIFF if not already done
-      if (!liff.isInClient() && !liff._liffId) {
+      if (!liff._liffId) {
         await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
       }
 
@@ -93,7 +56,6 @@ export default function SideBar({ isOpen, onClose }) {
 
       // Get profile and perform sign-in
       const profile = await liff.getProfile();
-      setLineProfile(profile);
       
       const result = await lineSignIn(profile);
       
@@ -118,9 +80,7 @@ export default function SideBar({ isOpen, onClose }) {
   const handleLogout = useCallback(async () => {
     try {
       const result = await logoutUser();
-      
       if (result.success) {
-        setLineProfile(null);
         setIsSignoutModalOpen(false);
         onClose();
       }
@@ -131,9 +91,9 @@ export default function SideBar({ isOpen, onClose }) {
   }, [logoutUser, onClose]);
 
   const copyUserId = useCallback(() => {
-    const id = user?.lineId || lineProfile?.userId;
-    if (id) {
-      navigator.clipboard.writeText(id);
+    const userId = user?.lineId || lineProfile?.userId;
+    if (userId) {
+      navigator.clipboard.writeText(userId);
       toast.success("User ID copied to clipboard");
     }
   }, [user, lineProfile]);
@@ -191,9 +151,6 @@ export default function SideBar({ isOpen, onClose }) {
     );
   }, [user]);
 
-  // Check if user is authenticated - combined check for both auth methods
-  const isAuthenticated = status === "authenticated" || !!user;
-
   const renderUserInfo = useCallback(() => {
     if (user?.email) {
       return user.email;
@@ -229,6 +186,9 @@ export default function SideBar({ isOpen, onClose }) {
     }
     return "Sign in to access more features";
   }, [user, lineProfile, showUserId, copyUserId]);
+
+  // Determine if user is authenticated through either method
+  const isAuthenticated = status === 'authenticated' || user !== null;
 
   return (
     <>

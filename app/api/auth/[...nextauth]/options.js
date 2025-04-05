@@ -40,7 +40,7 @@ export const options = {
             // Update existing user info
             user.lastLogin = new Date();
             
-            // Always update these fields with the latest values from LINE
+            // Always update these fields if they're provided
             if (credentials.pictureUrl) {
               user.avatar = credentials.pictureUrl;
             }
@@ -145,7 +145,7 @@ export const options = {
   debug: process.env.NODE_ENV === "development",
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
 };
 
