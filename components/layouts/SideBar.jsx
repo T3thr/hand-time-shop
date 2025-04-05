@@ -137,7 +137,7 @@ export default function SideBar({ isOpen, onClose }) {
               {showUserId ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
             {showUserId && (
-              <div className="flex items-center space-x-1 max-w-12 overflow-hidden">
+              <div className="flex items-center space-x-1 max-w-24 overflow-hidden">
                 <span className="text-xs bg-container px-2 py-1 rounded truncate">
                   {user?.lineId || lineProfile?.userId}
                 </span>

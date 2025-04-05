@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import Image from "next/image";
-import Link from "next/link";
 import LineCheckoutModal from "./LineCheckoutModal";
 import AuthContext from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -59,7 +58,6 @@ const Cart = ({ isOpen, onClose }) => {
               onClick={onClose}
               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             />
-
             <motion.div
               className="fixed bottom-0 left-0 right-0 h-[85vh] bg-surface-card rounded-t-3xl shadow-2xl z-50 md:hidden"
               variants={slideVariants.mobile}
@@ -80,7 +78,6 @@ const Cart = ({ isOpen, onClose }) => {
                 isAuthenticated={isAuthenticated}
               />
             </motion.div>
-
             <motion.div
               className="fixed top-0 right-0 h-full w-[400px] bg-surface-card shadow-2xl z-50 hidden md:block"
               variants={slideVariants.desktop}
@@ -104,7 +101,6 @@ const Cart = ({ isOpen, onClose }) => {
           </>
         )}
       </AnimatePresence>
-
       <LineCheckoutModal isOpen={isLineCheckoutModalOpen} onClose={handleCloseLineCheckoutModal} />
     </>
   );
@@ -139,7 +135,6 @@ const CartContent = ({
           </button>
         </div>
       </div>
-
       {cartItems.length > 0 ? (
         <div className="flex-1 overflow-y-auto py-4">
           <div className="space-y-4 px-4">
@@ -198,7 +193,6 @@ const CartContent = ({
           </button>
         </div>
       )}
-
       {cartItems.length > 0 && (
         <div className="p-4 border-t border-border-primary">
           <div className="space-y-4">
