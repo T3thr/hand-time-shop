@@ -1,5 +1,6 @@
+// components/layouts/SideBar.jsx
 'use client';
-import React, { useState, useCallback, useContext, useEffect } from "react";
+import React, { useState, useCallback, useContext } from "react";
 import Link from "next/link";
 import {
   Menu, User, X, Home, Tag, Sparkles, LogOut, ChevronRight,
@@ -11,7 +12,6 @@ import AuthContext from "@/context/AuthContext";
 import SigninModal from "@/components/auth/SigninModal";
 import SignoutModal from "@/components/auth/SignoutModal";
 import { FaLine } from 'react-icons/fa';
-import dynamic from 'next/dynamic';
 
 const sidebarLinks = [
   { href: "/", icon: Home, label: "Home" },
@@ -26,45 +26,30 @@ export default function SideBar({ isOpen, onClose }) {
   const [isSignoutModalOpen, setIsSignoutModalOpen] = useState(false);
   const [isLineLoading, setIsLineLoading] = useState(false);
   const [showUserId, setShowUserId] = useState(false);
-  
-  const { 
-    user, 
-    lineProfile, 
-    lineSignIn, 
-    adminSignIn, 
-    logoutUser, 
-    setLineProfile,
-    status 
-  } = useContext(AuthContext);
 
-  // Line login handler
+  const { user, lineProfile, lineSignIn, adminSignIn, logoutUser, status } = useContext(AuthContext);
+
   const handleLineSignIn = useCallback(async () => {
     setIsLineLoading(true);
     try {
       const { default: liff } = await import('@line/liff');
-      
-      // Initialize LIFF if not already done
       if (!liff._liffId) {
         await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
       }
 
-      // If not logged in, perform LINE login
       if (!liff.isLoggedIn()) {
         liff.login();
         return;
       }
 
-      // Get profile and perform sign-in
       const profile = await liff.getProfile();
-      
       const result = await lineSignIn(profile);
-      
+
       if (!result.success) {
         throw new Error(result.message);
       }
     } catch (error) {
       console.error("LINE login error:", error);
-      // Don't show error for redirects
       if (!error.message?.includes("redirect")) {
         toast.error("LINE login failed. Please try again.");
       }
@@ -106,29 +91,16 @@ export default function SideBar({ isOpen, onClose }) {
         </div>
       );
     }
-
-    if (user?.image) {
+    if (user?.image || lineProfile?.pictureUrl) {
       return (
         <img
-          src={user.image}
+          src={user?.image || lineProfile?.pictureUrl}
           alt="Profile"
           className="h-10 w-10 rounded-full object-cover"
           loading="lazy"
         />
       );
     }
-
-    if (lineProfile?.pictureUrl) {
-      return (
-        <img
-          src={lineProfile.pictureUrl}
-          alt="Profile"
-          className="h-10 w-10 rounded-full object-cover"
-          loading="lazy"
-        />
-      );
-    }
-
     return (
       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
         <User className="h-6 w-6 text-primary" />
@@ -141,9 +113,7 @@ export default function SideBar({ isOpen, onClose }) {
     return (
       <span
         className={`text-xs px-2 py-1 rounded-full ${
-          user.role === 'admin'
-            ? 'bg-blue-100 text-blue-800'
-            : 'bg-green-100 text-green-800'
+          user.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
         }`}
       >
         {user.role}
@@ -187,8 +157,7 @@ export default function SideBar({ isOpen, onClose }) {
     return "Sign in to access more features";
   }, [user, lineProfile, showUserId, copyUserId]);
 
-  // Determine if user is authenticated through either method
-  const isAuthenticated = status === 'authenticated' || user !== null;
+  const isAuthenticated = status === 'authenticated' || !!user || !!lineProfile;
 
   return (
     <>

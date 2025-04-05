@@ -115,9 +115,9 @@ export const options = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.lineId = user.lineId;
+        token.lineId = user.lineId || null; // Ensure lineId is always present
         token.name = user.name;
-        token.image = user.image;
+        token.image = user.image || null;
         token.provider = account?.provider || (user.lineId ? "line" : "admin-credentials");
       }
       return token;

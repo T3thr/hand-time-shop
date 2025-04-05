@@ -1,3 +1,4 @@
+// context/AuthContext.js
 "use client";
 import axios from "axios";
 import { useRouter } from "next/navigation";
@@ -15,31 +16,22 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Initialize LIFF and check existing LINE login status
   useEffect(() => {
     const initializeLiff = async () => {
       try {
-        // Skip if LIFF ID is not defined
         if (!process.env.NEXT_PUBLIC_LIFF_ID) {
           console.warn("LIFF ID is not defined in environment variables");
           return;
         }
 
-        // Dynamically import LIFF
         const { default: liff } = await import('@line/liff');
-        
-        // Initialize LIFF if not already done
-        if (!liff._liffId) {
-          await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
-        }
+        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
 
-        // Check if user is already logged in with LINE
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
           setLineProfile(profile);
-          
-          // If no user session but LINE is logged in, sign in with LINE
-          if (status === "unauthenticated" && profile) {
+
+          if (status === "unauthenticated") {
             await lineSignIn(profile);
           }
         }
@@ -48,18 +40,41 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    // Only attempt LINE initialization if we're in a browser
     if (typeof window !== 'undefined') {
       initializeLiff();
     }
-  }, [status]); // Re-run if session status changes
+  }, [status]);
+
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      setUser(session.user);
+      if (session.user.provider === "line" && !lineProfile) {
+        setLineProfile({
+          userId: session.user.lineId,
+          displayName: session.user.name,
+          pictureUrl: session.user.image,
+        });
+      }
+    } else if (status === "unauthenticated") {
+      setUser(null);
+      setLineProfile(null); // Clear LINE profile on logout
+    }
+  }, [session, status]);
 
   // Update user state when session changes
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
       setUser(session.user);
+      if (session.user.provider === "line" && !lineProfile) {
+        setLineProfile({
+          userId: session.user.lineId,
+          displayName: session.user.name,
+          pictureUrl: session.user.image,
+        });
+      }
     } else if (status === "unauthenticated") {
       setUser(null);
+      setLineProfile(null); // Clear LINE profile on logout
     }
   }, [session, status]);
 
@@ -120,32 +135,28 @@ export const AuthProvider = ({ children }) => {
   const lineSignIn = useCallback(async (profile) => {
     try {
       setLoading(true);
-      
-      if (!profile || !profile.userId) {
-        throw new Error("LINE profile data is required");
-      }
-      
-      setLineProfile(profile); // Store LINE profile locally
-      
-      // Use NextAuth's credentials provider for LINE
+      if (!profile || !profile.userId) throw new Error("LINE profile data is required");
+
+      setLineProfile(profile);
+
       const res = await nextAuthSignIn("line", {
         redirect: false,
         userId: profile.userId,
         displayName: profile.displayName,
         pictureUrl: profile.pictureUrl,
       });
-      
+
       if (res?.error) {
         toast.error(res.error);
         return { success: false, message: res.error };
       }
-      
+
       if (res?.ok) {
         await update();
         toast.success("LINE login successful!");
         return { success: true };
       }
-      
+
       return { success: false, message: "Unknown error occurred" };
     } catch (error) {
       console.error("LINE signin error:", error);
@@ -156,33 +167,23 @@ export const AuthProvider = ({ children }) => {
     }
   }, [update]);
 
-  const logoutUser = async () => {
+  const logoutUser = useCallback(async () => {
     try {
       setLoading(true);
-  
-      // Logout from NextAuth
       await nextAuthSignOut({ redirect: false });
-  
-      // Logout from LINE if LIFF is available
+
       if (typeof window !== 'undefined') {
-        try {
-          const { default: liff } = await import('@line/liff');
-          if (liff.isInClient() && liff.isLoggedIn()) {
-            liff.logout();
-          }
-        } catch (liffError) {
-          console.warn("LIFF logout error:", liffError);
-          // Don't fail the logout process if LIFF logout fails
+        const { default: liff } = await import('@line/liff');
+        if (liff.isLoggedIn()) {
+          liff.logout();
         }
       }
-  
-      // Clear state
+
       setUser(null);
       setLineProfile(null);
-  
       toast.success("Logged out successfully");
       router.push("/");
-  
+
       return { success: true };
     } catch (error) {
       console.error("Logout error:", error);
@@ -191,7 +192,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   const clearErrors = () => setError(null);
 

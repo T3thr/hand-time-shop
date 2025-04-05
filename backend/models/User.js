@@ -93,8 +93,9 @@ const OrderItemSchema = new Schema({
 const OrderSchema = new Schema({
   orderId: { 
     type: String, 
-    required: true,
-    unique: true
+    unique: true, 
+    sparse: true, // Allows multiple null values
+    default: () => `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` // Auto-generate if not provided
   },
   items: [OrderItemSchema],
   totalAmount: { 
@@ -230,11 +231,9 @@ const UserSchema = new Schema({
     type: String,
     validate: {
       validator: function(v) {
-        // Allow URLs that start with http/https and point to known image-hosting domains or have image extensions
-        return /^(https?:\/\/).+/.test(v) && (
-          /\.(jpg|jpeg|png|webp|gif)$/i.test(v) || 
-          /profile\.line-scdn\.net/.test(v)
-        );
+        // Make validation optional if empty, or check for valid URL
+        if (!v) return true;
+        return /^(https?:\/\/).+/.test(v); // Simplified to accept any HTTPS URL
       },
       message: props => `${props.value} is not a valid image URL!`
     }
