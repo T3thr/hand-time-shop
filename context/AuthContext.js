@@ -30,9 +30,9 @@ export const AuthProvider = ({ children }) => {
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
           setLineProfile(profile);
-
           if (status === "unauthenticated") {
-            await lineSignIn(profile);
+            await createLineUser(profile); // Register/update LINE user
+            await lineSignIn(profile); // Then sign in
           }
         }
       } catch (error) {
@@ -57,24 +57,7 @@ export const AuthProvider = ({ children }) => {
       }
     } else if (status === "unauthenticated") {
       setUser(null);
-      setLineProfile(null); // Clear LINE profile on logout
-    }
-  }, [session, status]);
-
-  // Update user state when session changes
-  useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      setUser(session.user);
-      if (session.user.provider === "line" && !lineProfile) {
-        setLineProfile({
-          userId: session.user.lineId,
-          displayName: session.user.name,
-          pictureUrl: session.user.image,
-        });
-      }
-    } else if (status === "unauthenticated") {
-      setUser(null);
-      setLineProfile(null); // Clear LINE profile on logout
+      setLineProfile(null);
     }
   }, [session, status]);
 
@@ -111,18 +94,15 @@ export const AuthProvider = ({ children }) => {
         username,
         password,
       });
-      
       if (res?.error) {
         toast.error(res.error);
         return { success: false, message: res.error };
       }
-      
       if (res?.ok) {
         await update();
         toast.success("Admin login successful!");
         return { success: true };
       }
-      
       return { success: false, message: "Unknown error occurred" };
     } catch (error) {
       toast.error("Signin failed");
@@ -167,6 +147,36 @@ export const AuthProvider = ({ children }) => {
     }
   }, [update]);
 
+  const createLineUser = useCallback(async (profile) => {
+    try {
+      setLoading(true);
+      const response = await axios.post("/api/auth/line/register", {
+        userId: profile.userId,
+        displayName: profile.displayName,
+        pictureUrl: profile.pictureUrl,
+        idToken: profile.idToken || null, // Optional, if available
+      });
+
+      if (response.data.success) {
+        const registeredUser = response.data.user;
+        setUser({
+          id: registeredUser.id,
+          name: registeredUser.name,
+          lineId: registeredUser.lineId,
+          image: registeredUser.avatar,
+          role: registeredUser.role,
+        });
+        return { success: true };
+      }
+    } catch (error) {
+      console.error("LINE user creation error:", error);
+      toast.error(error.response?.data?.error || "Failed to register LINE user");
+      return { success: false, message: error.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const logoutUser = useCallback(async () => {
     try {
       setLoading(true);
@@ -207,6 +217,7 @@ export const AuthProvider = ({ children }) => {
         signupUser,
         adminSignIn,
         lineSignIn,
+        createLineUser, // Added new function
         logoutUser,
         setUser,
         setLineProfile,

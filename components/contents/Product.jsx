@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
@@ -11,7 +11,6 @@ import { useProducts } from "@/backend/lib/productAction";
 import axios from "axios";
 import { motion } from "framer-motion";
 import AuthContext from "@/context/AuthContext";
-import { useContext } from "react";
 
 export default function Product() {
   const featuredProductsRef = useRef(null);
@@ -32,12 +31,7 @@ export default function Product() {
   const router = useRouter();
 
   const scrollToFeaturedProducts = () => {
-    if (featuredProductsRef.current) {
-      featuredProductsRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
+    featuredProductsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   useEffect(() => {
@@ -90,13 +84,7 @@ export default function Product() {
 
     if (status === "unauthenticated") {
       toast.error("Please sign in to add items to cart");
-      router.push("/signin");
-      return;
-    }
-
-    if (!user?.id) {
-      toast.error("Session error. Please sign in again.");
-      router.push("/signin");
+      router.push("/auth/signin");
       return;
     }
 
@@ -105,13 +93,10 @@ export default function Product() {
         id: product._id,
         name: product.name,
         price: product.price,
-        description: product.description,
         image: product.images[0]?.url || "/images/placeholder.jpg",
-        category: product.categories[0] || "",
       };
 
       const success = await addToCart(cartItem);
-
       if (success) {
         const { totalItems, subtotal } = getCartSummary();
         toast.success(
@@ -145,9 +130,10 @@ export default function Product() {
     router.push(`/product/${productId}`);
   };
 
-  const isProductInCart = (productId) => cartItems.some((item) => item.id === productId);
+  const isProductInCart = (productId) =>
+    cartItems.some((item) => item.productId.toString() === productId.toString());
   const getProductQuantityInCart = (productId) => {
-    const item = cartItems.find((item) => item.id === productId);
+    const item = cartItems.find((item) => item.productId.toString() === productId.toString());
     return item ? item.quantity : 0;
   };
 
@@ -156,6 +142,7 @@ export default function Product() {
 
     if (status === "unauthenticated") {
       toast.error("Please sign in to manage wishlist");
+      router.push("/auth/signin");
       return;
     }
 
@@ -231,7 +218,7 @@ export default function Product() {
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
               Discover Your <span className="text-primary">Perfect Style</span>
             </h1>
-            <p className="text-lg md:text-xl text-text-secondary leading-relaxed">
+            <p className="text-lg md:text-xl text-text-secondary ROCKleading-relaxed">
               Discover a world of unique, handcrafted products, made with love and skill right here in Uttaradit.
               From traditional crafts to modern designs, every item tells a story.
             </p>
@@ -269,7 +256,7 @@ export default function Product() {
             viewport={{ once: true }}
           >
             <h2 className="text-2xl md:text-3xl font-bold mb-4 text-text-primary">Shop by Category</h2>
-            <p className="text-text-secondary mb-8 max-w-2xl">Explore our collection of handcrafted products organized by category, each representing unique craftsmanship and cultural heritage.</p>
+            <p className="text-text-secondary mb-8 max-w-2xl">Explore our collection of handcrafted products organized by category.</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">

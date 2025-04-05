@@ -1,19 +1,20 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import Image from "next/image";
 import Link from "next/link";
 import LineCheckoutModal from "./LineCheckoutModal";
-import { useContext } from "react";
 import AuthContext from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 
 const Cart = ({ isOpen, onClose }) => {
   const { cartItems, updateQuantity, removeFromCart, getCartSummary } = useCart();
   const { subtotal, totalItems } = getCartSummary();
   const { user, status } = useContext(AuthContext);
   const [isLineCheckoutModalOpen, setIsLineCheckoutModalOpen] = useState(false);
+  const router = useRouter();
 
   const slideVariants = {
     mobile: {
@@ -31,7 +32,7 @@ const Cart = ({ isOpen, onClose }) => {
   const handleProceedToCheckout = (e) => {
     e.preventDefault();
     if (status === "unauthenticated") {
-      window.location.href = "/signin";
+      router.push("/auth/signin");
       return;
     }
     setIsLineCheckoutModalOpen(true);
@@ -71,7 +72,6 @@ const Cart = ({ isOpen, onClose }) => {
                 onClose={onClose}
                 onCheckout={handleProceedToCheckout}
                 isMobile={true}
-                user={user}
               />
             </motion.div>
 
@@ -92,7 +92,6 @@ const Cart = ({ isOpen, onClose }) => {
                 onClose={onClose}
                 onCheckout={handleProceedToCheckout}
                 isMobile={false}
-                user={user}
               />
             </motion.div>
           </>
@@ -113,7 +112,6 @@ const CartContent = ({
   onClose,
   onCheckout,
   isMobile,
-  user,
 }) => {
   return (
     <div className="flex flex-col h-full bg-surface-card transition-colors duration-300">
