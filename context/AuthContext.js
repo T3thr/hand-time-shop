@@ -31,8 +31,8 @@ export const AuthProvider = ({ children }) => {
           const profile = await liff.getProfile();
           setLineProfile(profile);
           if (status === "unauthenticated") {
-            await createLineUser(profile); // Register/update LINE user
-            await lineSignIn(profile); // Then sign in
+            await registerLineUser(profile); // Register before signing in
+            await lineSignIn(profile);
           }
         }
       } catch (error) {
@@ -60,6 +60,35 @@ export const AuthProvider = ({ children }) => {
       setLineProfile(null);
     }
   }, [session, status]);
+
+  const registerLineUser = useCallback(async (profile) => {
+    try {
+      setLoading(true);
+      const res = await axios.post("/api/auth/line/register", {
+        userId: profile.userId,
+        displayName: profile.displayName,
+        pictureUrl: profile.pictureUrl,
+        idToken: profile.idToken || null, // Optional, if you use it for verification
+      });
+
+      if (res.data.success) {
+        setUser({
+          id: res.data.user.id,
+          name: res.data.user.name,
+          lineId: res.data.user.lineId,
+          avatar: res.data.user.avatar,
+          role: res.data.user.role,
+        });
+        return { success: true };
+      }
+    } catch (error) {
+      console.error("LINE registration error:", error);
+      toast.error(error.response?.data?.error || "Failed to register LINE user");
+      return { success: false, message: error.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const signupUser = async ({ name, username, email, password }) => {
     try {
@@ -94,15 +123,18 @@ export const AuthProvider = ({ children }) => {
         username,
         password,
       });
+      
       if (res?.error) {
         toast.error(res.error);
         return { success: false, message: res.error };
       }
+      
       if (res?.ok) {
         await update();
         toast.success("Admin login successful!");
         return { success: true };
       }
+      
       return { success: false, message: "Unknown error occurred" };
     } catch (error) {
       toast.error("Signin failed");
@@ -147,36 +179,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [update]);
 
-  const createLineUser = useCallback(async (profile) => {
-    try {
-      setLoading(true);
-      const response = await axios.post("/api/auth/line/register", {
-        userId: profile.userId,
-        displayName: profile.displayName,
-        pictureUrl: profile.pictureUrl,
-        idToken: profile.idToken || null, // Optional, if available
-      });
-
-      if (response.data.success) {
-        const registeredUser = response.data.user;
-        setUser({
-          id: registeredUser.id,
-          name: registeredUser.name,
-          lineId: registeredUser.lineId,
-          image: registeredUser.avatar,
-          role: registeredUser.role,
-        });
-        return { success: true };
-      }
-    } catch (error) {
-      console.error("LINE user creation error:", error);
-      toast.error(error.response?.data?.error || "Failed to register LINE user");
-      return { success: false, message: error.message };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const logoutUser = useCallback(async () => {
     try {
       setLoading(true);
@@ -217,8 +219,8 @@ export const AuthProvider = ({ children }) => {
         signupUser,
         adminSignIn,
         lineSignIn,
-        createLineUser, // Added new function
         logoutUser,
+        registerLineUser, // Added new function
         setUser,
         setLineProfile,
         clearErrors,

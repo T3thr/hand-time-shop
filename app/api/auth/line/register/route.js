@@ -1,3 +1,4 @@
+// app/api/auth/line/register/route.js
 import { NextResponse } from "next/server";
 import dbConnect from "@/backend/lib/mongodb";
 import User from "@/backend/models/User";
@@ -12,9 +13,6 @@ export async function POST(request) {
       return NextResponse.json({ error: "LINE user ID is required" }, { status: 400 });
     }
     
-    // Verify the idToken if needed
-    // This would normally involve a verification step with LINE's API
-    
     let user = await User.findOne({ lineId: userId });
     
     if (!user) {
@@ -28,7 +26,7 @@ export async function POST(request) {
         password: null,
         cart: [],
         wishlist: [],
-        orders: [],
+        orders: [], // Ensure empty array, no invalid data
         addresses: [],
         isVerified: true,
         lastLogin: new Date(),
@@ -43,11 +41,9 @@ export async function POST(request) {
         },
       });
     } else {
-      // Update last login time
       user.lastLogin = new Date();
-      if (!user.avatar && pictureUrl) {
-        user.avatar = pictureUrl;
-      }
+      if (!user.avatar && pictureUrl) user.avatar = pictureUrl;
+      if (!user.name && displayName) user.name = displayName;
       await user.save();
     }
     

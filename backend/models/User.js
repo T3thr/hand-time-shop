@@ -93,9 +93,8 @@ const OrderItemSchema = new Schema({
 const OrderSchema = new Schema({
   orderId: { 
     type: String, 
-    unique: true, 
-    sparse: true, // Already present, ensures null values are allowed
-    default: () => `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` // Already present
+    sparse: true, // Allows multiple null values, remove unique constraint if not needed
+    default: () => `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` // Auto-generate unique ID
   },
   items: [OrderItemSchema],
   totalAmount: { 

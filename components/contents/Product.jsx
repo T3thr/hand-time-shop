@@ -1,3 +1,4 @@
+// components/contents/Product.jsx
 "use client";
 import React, { useState, useEffect, useRef, useContext } from "react";
 import Image from "next/image";
@@ -25,13 +26,20 @@ export default function Product() {
   const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { user, status } = useContext(AuthContext);
+  const { user, lineProfile, status } = useContext(AuthContext);
   const { addToCart, cartItems, getCartSummary } = useCart();
   const { products, isLoading: productsLoading, isError } = useProducts();
   const router = useRouter();
 
+  const isAuthenticated = status === "authenticated" || !!user || !!lineProfile;
+
   const scrollToFeaturedProducts = () => {
-    featuredProductsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (featuredProductsRef.current) {
+      featuredProductsRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
   };
 
   useEffect(() => {
@@ -82,7 +90,7 @@ export default function Product() {
   const handleAddToCart = async (product, e) => {
     e.stopPropagation();
 
-    if (status === "unauthenticated") {
+    if (!isAuthenticated) {
       toast.error("Please sign in to add items to cart");
       router.push("/auth/signin");
       return;
@@ -93,10 +101,13 @@ export default function Product() {
         id: product._id,
         name: product.name,
         price: product.price,
+        description: product.description,
         image: product.images[0]?.url || "/images/placeholder.jpg",
+        category: product.categories[0] || "",
       };
 
       const success = await addToCart(cartItem);
+
       if (success) {
         const { totalItems, subtotal } = getCartSummary();
         toast.success(
@@ -130,17 +141,16 @@ export default function Product() {
     router.push(`/product/${productId}`);
   };
 
-  const isProductInCart = (productId) =>
-    cartItems.some((item) => item.productId.toString() === productId.toString());
+  const isProductInCart = (productId) => cartItems.some((item) => item.productId === productId);
   const getProductQuantityInCart = (productId) => {
-    const item = cartItems.find((item) => item.productId.toString() === productId.toString());
+    const item = cartItems.find((item) => item.productId === productId);
     return item ? item.quantity : 0;
   };
 
   const handleWishlist = async (productId, e) => {
     e.stopPropagation();
 
-    if (status === "unauthenticated") {
+    if (!isAuthenticated) {
       toast.error("Please sign in to manage wishlist");
       router.push("/auth/signin");
       return;
@@ -218,7 +228,7 @@ export default function Product() {
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
               Discover Your <span className="text-primary">Perfect Style</span>
             </h1>
-            <p className="text-lg md:text-xl text-text-secondary ROCKleading-relaxed">
+            <p className="text-lg md:text-xl text-text-secondary leading-relaxed">
               Discover a world of unique, handcrafted products, made with love and skill right here in Uttaradit.
               From traditional crafts to modern designs, every item tells a story.
             </p>
@@ -256,7 +266,7 @@ export default function Product() {
             viewport={{ once: true }}
           >
             <h2 className="text-2xl md:text-3xl font-bold mb-4 text-text-primary">Shop by Category</h2>
-            <p className="text-text-secondary mb-8 max-w-2xl">Explore our collection of handcrafted products organized by category.</p>
+            <p className="text-text-secondary mb-8 max-w-2xl">Explore our collection of handcrafted products organized by category, each representing unique craftsmanship and cultural heritage.</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
@@ -270,7 +280,7 @@ export default function Product() {
                 className="group relative overflow-hidden rounded-2xl cursor-pointer transform transition-all duration-300 hover:scale-[1.02] hover:shadow-xl"
                 onClick={() => setFilters((prev) => ({ ...prev, category: category.name }))}
               >
-                <div className="aspect-[4/3] md:aspect-square relative">
+                <div classNameA="aspect-[4/3] md:aspect-square relative">
                   <Image
                     src={category.image?.url || "/images/placeholder.jpg"}
                     alt={category.name}
