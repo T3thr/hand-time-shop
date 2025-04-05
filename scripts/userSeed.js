@@ -1,4 +1,6 @@
+// scripts/userseed.js
 import 'dotenv/config'; // Load environment variables from .env file
+import mongoose from 'mongoose';
 import dbConnect from '@/backend/lib/mongodb.js';
 import User from '@/backend/models/User.js';
 
@@ -22,10 +24,7 @@ async function seedAdmin() {
 
     // Check if admin user already exists
     const existingAdmin = await User.findOne({
-      $or: [
-        { username: adminUsername },
-        { email: adminEmail }
-      ]
+      $or: [{ username: adminUsername }, { email: adminEmail }],
     });
 
     if (existingAdmin) {
@@ -39,21 +38,33 @@ async function seedAdmin() {
       process.exit(0);
     }
 
-    // Create new admin user
+    // Create new admin user with updated schema
     const newAdmin = new User({
       username: adminUsername,
       email: adminEmail,
-      password: adminPassword,
+      password: adminPassword, // Will be hashed by pre-save hook
       name: 'Admin User',
       role: 'admin',
+      avatar: null,
+      lineId: null,
+      cart: [],
+      wishlist: [],
+      orders: [], // Empty array, default `orderId` will handle uniqueness
+      addresses: [],
       isVerified: true,
+      lastLogin: new Date(),
       preferences: {
         theme: 'system',
         notifications: {
           email: true,
-          sms: false
-        }
-      }
+          sms: false,
+        },
+      },
+      stats: {
+        totalOrders: 0,
+        totalSpent: 0,
+        lastOrderDate: null,
+      },
     });
 
     // Save admin user to database
@@ -66,12 +77,12 @@ async function seedAdmin() {
       role: newAdmin.role,
       createdAt: newAdmin.createdAt,
     });
-
   } catch (error) {
     console.error('❌ Error seeding admin user:', error.message);
     if (error.code === 11000) {
       console.error('This appears to be a duplicate key error. The username or email might already be in use.');
     }
+    process.exit(1);
   } finally {
     // Close the MongoDB connection
     try {

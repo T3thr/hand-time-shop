@@ -6,29 +6,31 @@ import User from "@/backend/models/User";
 export async function POST(request) {
   try {
     await dbConnect();
-    
+
     const { userId, displayName, pictureUrl, idToken } = await request.json();
-    
+
     if (!userId) {
       return NextResponse.json({ error: "LINE user ID is required" }, { status: 400 });
     }
-    
+
+    // Check for existing user by lineId
     let user = await User.findOne({ lineId: userId });
-    
+
     if (!user) {
-      user = await User.create({
+      // Create new LINE user
+      user = new User({
         lineId: userId,
         name: displayName || `LINE User ${userId.slice(0, 4)}`,
         avatar: pictureUrl || null,
         role: "user",
         email: null,
         username: null,
-        password: null,
+        password: null, // No password for LINE users
         cart: [],
         wishlist: [],
-        orders: [], // Ensure empty array, no invalid data
+        orders: [], // Empty array, let default `orderId` generator handle uniqueness
         addresses: [],
-        isVerified: true,
+        isVerified: true, // LINE users are auto-verified
         lastLogin: new Date(),
         preferences: {
           theme: "system",
@@ -40,13 +42,15 @@ export async function POST(request) {
           lastOrderDate: null,
         },
       });
+      await user.save();
     } else {
+      // Update existing user
       user.lastLogin = new Date();
       if (!user.avatar && pictureUrl) user.avatar = pictureUrl;
       if (!user.name && displayName) user.name = displayName;
       await user.save();
     }
-    
+
     return NextResponse.json({
       success: true,
       user: {
@@ -59,6 +63,12 @@ export async function POST(request) {
     }, { status: 200 });
   } catch (error) {
     console.error("LINE registration error:", error);
+    if (error.code === 11000) {
+      return NextResponse.json(
+        { error: "Duplicate LINE user ID detected", details: error.message },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to register LINE user", details: error.message },
       { status: 500 }
